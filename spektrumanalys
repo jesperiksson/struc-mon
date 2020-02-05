@@ -35,6 +35,7 @@ X=fftpack.fft(acc1)
 S = 2.0/N
 L = S*abs(X)
 
+# testas i nya python
 from scipy import find_peaks
 peaks= sio.find_peaks(L)
 plt.plot(f,L)
