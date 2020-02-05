@@ -1,0 +1,41 @@
+# -*- spektra -*-
+import scipy.io as sio
+from scipy import fftpack
+import numpy as np
+import array as ar
+import matplotlib.pyplot as plt
+
+mat = sio.loadmat('b4Signal.mat')
+
+acc= mat['a']
+acc1=acc[1,:]
+
+Fs = 1000.0;                        # Sampling frequencies
+T = 60.0                            # Total time
+t_1= 42.0*3.6/100;                  # time to pass the bridge
+
+# tidsvektor
+t_steg=1/Fs                         # steglängd för tidsvektor 
+t=ar.array('f',range(0, int(T/t_steg)+1))
+for i in range(0, int(T/t_steg)+1):
+    t[i]=i*t_steg
+
+# frekvensvektor
+f_steg=Fs/len(t)                    # steg mellan frekvenser i plot    
+
+f=ar.array('f',range(0, int(Fs/f_steg)))
+for i in range(0, int(Fs/f_steg)):
+    f[i]=i*f_steg
+
+# Matlab fourier copy
+N=len(t)
+
+X=fftpack.fft(acc1)
+
+S = 2.0/N
+L = S*abs(X)
+
+from scipy import find_peaks
+peaks= sio.find_peaks(L)
+plt.plot(f,L)
+plt.plot(peaks, f[peaks], "x")
