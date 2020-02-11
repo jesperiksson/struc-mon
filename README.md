@@ -24,6 +24,7 @@ Toolbox for analyzing bridges using ANN and other methods
     - Outlier analysis 
         - Statistical methods
             - Mahalanobis distance
+            - Kolmogorov-Smirnov distance
         - Artificial Neural Nets with supervised learning
             - Time-series MLP
                 - Tensorflow
