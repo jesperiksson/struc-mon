@@ -1,14 +1,29 @@
+# Modules
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-import matplotli.pyplot as plt
+import matplotlib.pyplot as plt
 from util import *
+import pandas as pd 
 
-if __name__ == "__main__"
+# Class files
+from LSTM import * 
 
-    foobar = readdata()
-    LSTMdata = fit_to_LSTM(foobar) # Path to data file
-    n_samples = 5
+if __name__ == "__main__":
+
+    with open('intervall.csv', 'r') as f:
+        data = np.array(pd.read_csv('intervall.csv'))
+        for row in data:
+            print(row)
+    trainset = data[:,:150]
+    testset = data[:,150:]
+
+    '''Stack of machines'''
+    machine_stack = {
+        'vanillaLSTM' : LongShortTermMemoryMachine(trainset, testset, n_batches = 5 , net_type = 'vanilla')
+
+    }
+
     print("\nStarting a LSTM machine")
     LSTM = LongShortTermMemoryMachine(LSTMdata, n_samples)
-    LSTM.trainLSTM(LSTMdata) # To be continued
+    LSTM.trainLSTM(LSTMdata) # To be cgit ontinued

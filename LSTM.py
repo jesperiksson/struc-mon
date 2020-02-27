@@ -1,23 +1,39 @@
 from util import *
+import tensorflow as tf
+'''Importing all necessary functions to create a LSTM Machine'''
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, LSTM
+#from keras.preprocessing.sequence import TimeseriesGenerator, pad_sequences, metrics, initializers
+
 
 class LongShortTermMemoryMachine():
 
-    def __init__(self, trainset, n_samples)
+    def __init__(self, trainset, testset, n_batches, net_type = 'vanilla'):
 
         """
         Args:
+            net_type: which type of LSTM net (e.g. vanilla)
             time_window: Duration of sample
-            n_acceleroms: Number of accelerometers
+            n_accels: Number of accelerometers
             pred_accelerom: the accelerometer whose result is to be predicted
         """
-        self.n_samples = n_samples
-        self.n_accels = trainset.shape[1]
-        self.n_node = trainset.shape[0]/self.n_samples
-
+        self.net_type = net_type
+        self.n_timesteps = trainset.shape[1]
+        self.n_batches = n_batches
+        self.n_sensors = int(trainset.shape[0]/n_batches)
         self.activation='relu'
         self.loss='mse'
+        if self.net_type == 'vanilla':
+            model = Sequential()
+            model.add(LSTM(self.n_timesteps, input_shape=(self.n_timesteps, self.n_sensors)))
+            model.add(Dense(1))
+            model.compile(optimizer='adam', loss='mse')
+        #elif self.net_type == '': #And so forth
 
-    def trainLSTM(self, trainset, lbl, n_samples)
+        self.model = model
+    
+
+    def train(self, pattern, target, n_samples, epochs = 200):
         
         """
         Args: 
@@ -31,44 +47,13 @@ class LongShortTermMemoryMachine():
             n_samples = number of samples contained in the trainset
         """
 
-        X = np.zeros(np.shape(trainset)[0]-n_samples,n_accels) # Creating an empty (k*(m-1),n) array 
-        for i in range(n_node-1)
-            start = i*n_node
-            end = (i+1)*n_node      
-            try : 
-                X[start:end-1] = np.concatenate((trainset[:lbl-1],trainset[lbl:]), axis=0)
-            except ValueError : 
-                if lbl == 1 # To handle the case where node 1 is to be predicted
-                    X[start:end-1] = trainset[1:]
-                else # To handle the case where last node is to be predicted
-                    X[start:end-1] = trainset[:-1]   
-            y[i] = trainset[lbl*(i+1)]
-        
-  
-        # define model
-        model = Sequential()
-        model.add(LSTM(50, activation=self.activation, input_shape=(n_steps, n_features)))
-        model.add(Dense(1))
-        model.compile(optimizer='adam', loss=self.loss)
         # fit model
-        model.fit(X, y, epochs=200, verbose=0)
+        model.fit(pattern, targets, epochs=epochs, verbose=0)
 
         return
 
-'''     Example of split secuence function
-# split a univariate sequence into samples
-def split_sequence(sequence, n_steps):
-	X, y = list(), list()
-	for i in range(len(sequence)):
-		# find the end of this pattern
-		end_ix = i + n_steps
-		# check if we are beyond the sequence
-		if end_ix > len(sequence)-1:
-			break
-		# gather input and output parts of the pattern
-		seq_x, seq_y = sequence[i:end_ix], sequence[end_ix]
-		X.append(seq_x)
-		y.append(seq_y)
-	return array(X), array(y)
-'''
+    def predict(self, model_input):
+        prediction = self.model.predict(model_input, verbose=0)
+        print('\n Prediction:',prediction)
+        return
 
