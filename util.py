@@ -1,76 +1,66 @@
 # Modules
-from os import listdir
-from os.path import isfile, join
-import scipy.io as sio
 import numpy as np
-import array as ar
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow import keras
+from keras.models import model_from_json
+import pandas as pd
 import os
-from operator import itemgetter
 import h5py
 
-# Class files
-from LSTM import * 
-from LSTMbatch import *
+# Classes
+from LSTMbatch import LongShortTermMemoryBatch as LSTMbatch
+
+''' Utilities for various classes'''
 
 def fit_H_to_LSTM(data_split, path):
+    """
+    Function that fits raw data into a format that fits LSTM, i.e. array of arrays of acceleration signals in time-domain
+    """
+    halfpath = 'measurements/'+ path + 'half/'
+    quarterpath = 'measurements/'+ path +'quarter/'
+    thirdpath = 'measurements/' + path + 'third/'
 
-    targetfolder=listdir('measurements/'+path)
-    datapaths={}
+    half = os.listdir(halfpath)
+    half.sort()
+    quarter = os.listdir(quarterpath)
+    quarter.sort()
+    third = os.listdir(thirdpath)
+    third.sort()
 
+    n_files = len(half)
     batchStack = {}
-    namemat=[]
-    filelist=[]
 
-    ### skapar alla paths
-    for x in range(0,len(targetfolder)):
+    for i in range(n_files):
+        
+        halfmat = h5py.File(halfpath + half[i],'r')
+        halfdata = halfmat.get('acc')
 
-        datapaths[targetfolder[x]+'path']='measurements/'+path+targetfolder[x]
-        # dict with all paths to the folders
+        quartermat = h5py.File(quarterpath + quarter[i],'r')
+        quarterdata = quartermat.get('acc')
 
-        globals()[targetfolder[x]]=os.listdir(datapaths[targetfolder[x]+'path'])
-        # list of all files in targeted folder
+        thirdmat = h5py.File(thirdpath + third[i],'r')
+        thirddata = thirdmat.get('acc')
+        if i/n_files <= data_split[0]/100:
+            batchStack.update({
+                'batch'+str(i) : LSTMbatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
+                                 i,     
+                                 category = 'train')
+            })
+        elif i/n_files > data_split[0]/100 and i/n_files <= (data_split[0]+data_split[1])/100:
+            batchStack.update({
+                'batch'+str(i) : LSTMbatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
+                                 i,
+                                 category = 'validation')
+            })
+        else:
+            batchStack.update({
+                'batch'+str(i) : LSTMbatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
+                                 i,
+                                 category = 'test')
+            })
+    return batchStack
 
-        sorted(globals()[targetfolder[x]])                  # sort the files
-        filelist.append(globals()[targetfolder[x]])
-        namemat.append(targetfolder[x]+'mat')                # målet är [halfmat, ...
-
-    n_files = len(globals()[targetfolder[0]])           # number of files in the folder
-
-    matris=[]
-
-
-    for i in range(0,n_files):
-        matris2=[]
-        for x in range(0,len(targetfolder)):
-
-
-            temp1=h5py.File(itemgetter(targetfolder[x]+'path')(datapaths)+'/'+filelist[x][i],'r')
-            temp2=temp1.get('acc')
-            matris.append(temp2[1,:])
-
-            if i/n_files <= data_split[0]/100:
-                    batchStack.update({
-                        'batch'+str(i) : LongShortTermMemoryBatch(matris,
-                                         i,     
-                                         category = 'train')
-                         })
-
-            elif i/n_files > data_split[0]/100 and i/n_files <= (data_split[0]+data_split[1])/100:
-                    batchStack.update({
-                        'batch'+str(i) : LongShortTermMemoryBatch(matris,
-                                        i,
-                                        category = 'validation')
-                        })
-
-            else:
-                batchStack.update({
-                        'batch'+str(i) : LongShortTermMemoryBatch(matris,
-                                        i,
-                                        category = 'test')
-                        })
-            return batchStack    
-        matris=[]
-                                                    
 def save_model(model,name):
     '''
     https://machinelearningmastery.com/save-load-keras-deep-learning-models/
@@ -82,4 +72,7 @@ def save_model(model,name):
     model.save_weights('models/'+name+'.h5')
     print('Saved model:', name)
 
-7
+def load_model(): #TODO
+
+    
+    pass   
