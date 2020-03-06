@@ -1,6 +1,6 @@
 #Other files and classes
 from util import *
-from LSTMdata import * 
+from LSTMbatch import * 
 # Modules
 import tensorflow as tf
 from keras.models import Sequential
