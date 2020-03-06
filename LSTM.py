@@ -3,7 +3,9 @@ from util import *
 from LSTMbatch import * 
 # Modules
 import tensorflow as tf
-from keras.models import Sequential
+import keras
+import os
+from keras.models import Sequential, model_from_json
 from keras.layers import Dense, LSTM
 from keras import metrics, callbacks
 from keras.utils import plot_model
@@ -169,8 +171,9 @@ class LongShortTermMemoryMachine():
                                                    verbose = 1)
         return evaluation
 
-    def predict_batch(self, batch):
-        self.model.predict_on_batch(self.batchStack['batch'+str(batch)])
+    def predict_batch(self, batch_num):
+        batch = self.batchStack['batch'+str(batch_num)].data[0:2]
+        self.model.predict_on_batch(batch)
         
         return
 

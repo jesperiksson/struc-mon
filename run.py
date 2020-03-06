@@ -69,8 +69,7 @@ if __name__ == "__main__":
                                                  n_sensors,
                                                  feature_wise_normalization,
                                                  early_stopping,
-                                                 existing_model = True,
-                                                 )
+                                                 existing_model = True)
         }
     except IOError:    
         machine_stack = {
@@ -82,8 +81,7 @@ if __name__ == "__main__":
                                                  n_sensors,
                                                  feature_wise_normalization,
                                                  early_stopping,
-                                                 existing_model = False
-                                                 )
+                                                 existing_model = False)
         }
 
     #batchStack['batch1'].plot_batch(sensor_list, 1)
