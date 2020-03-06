@@ -20,7 +20,7 @@ if __name__ == "__main__":
     '''
     Hyperparameters
     '''
-    #Model
+    # Model
     architecture = {
         'direction' : 'uni', # uni or bi (uni a.k.a. vanilla net)
         'n_LSTM_layers' : 2,
@@ -41,10 +41,20 @@ if __name__ == "__main__":
     n_sensors = len(sensor_dict)
     feature_wise_normalization = True # TODO
     early_stopping = True
-    #Training
+
+    # Training
     epochs = 2
 
-    name = str(train_percentage)+str(test_percentage)+str(validation_percentage)+split_mode+sensor_key+str(epochs)
+    # Plotting
+    do_plot_loss= False    
+
+    name = (architecture['direction']+ \
+           str(architecture['n_LSTM_layers'])+ \
+           str(train_percentage)+ \
+           str(test_percentage)+ \
+           str(validation_percentage)+ \
+           split_mode+sensor_key+ \
+           str(epochs))
 
     batchStack = fit_H_to_LSTM(data_split, path = 'H/')
 
@@ -59,9 +69,9 @@ if __name__ == "__main__":
                                              early_stopping
                                              )
     }
-    
-    HLSTM = machine_stack['HLSTM'].train(epochs)
-    machine_stack['HLSTM'].plot_loss()
+    batchStack['batch1'].plot_batch(sensor_dict, 1)
+    '''HLSTM = machine_stack['HLSTM'].train(epochs)
+    machine_stack['HLSTM'].plot_loss(do_plot_loss)
     evaluation = machine_stack['HLSTM'].evaluate()
     save_model(machine_stack['HLSTM'].model, name)
-    
+    '''

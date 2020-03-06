@@ -73,7 +73,7 @@ class LongShortTermMemoryMachine():
         self.model = model
         self.history = None 
 
-    def train(self, epochs = 200):
+    def train(self, epochs = 200): # Training and validating a model on threspective datasets
         
         """
         Args:
@@ -132,7 +132,7 @@ class LongShortTermMemoryMachine():
         
         return
 
-    def evaluate(self):
+    def evaluate(self): # Evaluating the model on the test dataset
         '''
         Args:
         '''
@@ -157,10 +157,17 @@ class LongShortTermMemoryMachine():
                                                    )
         return evaluation
 
-    def plot_loss(self):
+    def evaluate_batch():
+
+        return
+
+    def plot_loss(self, show_plot = False):
         plt.figure()
         plt.plot(range(1,self.epochs+1), self.loss, 'bo', label='Training loss')
         plt.plot(range(1,self.epochs+1), self.val_loss, 'b', label='Validation loss')
-        plt.title('Training and validation loss')
-        plt.legend()
-        plt.show()
+        if show_plot == True:
+            plt.title('Training and validation loss')
+            plt.legend()
+            plt.show()
+        else: 
+            pass
