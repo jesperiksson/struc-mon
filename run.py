@@ -37,6 +37,7 @@ if __name__ == "__main__":
         'half' : 0,
         'quarter' : 1,
         'third' : 2}
+    sensor_list = ['half', 'quarter', 'third']
     pred_sensor = sensor_dict[sensor_key] # Which sensor to be the target, the other sensors are patterns
     n_sensors = len(sensor_dict)
     feature_wise_normalization = True # TODO
@@ -57,21 +58,37 @@ if __name__ == "__main__":
            str(epochs))
 
     batchStack = fit_H_to_LSTM(data_split, path = 'H/')
+    try:
+        f = open('models/'+name+'.json')
+        machine_stack = {
+            'HLSTM' : LongShortTermMemoryMachine(architecture,
+                                                 batchStack,
+                                                 data_split,
+                                                 name,
+                                                 pred_sensor,
+                                                 n_sensors,
+                                                 feature_wise_normalization,
+                                                 early_stopping,
+                                                 existing_model = True,
+                                                 )
+        }
+    except IOError:    
+        machine_stack = {
+            'HLSTM' : LongShortTermMemoryMachine(architecture,
+                                                 batchStack,
+                                                 data_split,
+                                                 name,
+                                                 pred_sensor,
+                                                 n_sensors,
+                                                 feature_wise_normalization,
+                                                 early_stopping,
+                                                 existing_model = False
+                                                 )
+        }
 
-    '''Stack of machines'''
-    machine_stack = {
-        'HLSTM' : LongShortTermMemoryMachine(architecture,
-                                             batchStack,
-                                             data_split,
-                                             pred_sensor,
-                                             n_sensors,
-                                             feature_wise_normalization,
-                                             early_stopping
-                                             )
-    }
-    batchStack['batch1'].plot_batch(sensor_dict, 1)
-    '''HLSTM = machine_stack['HLSTM'].train(epochs)
-    machine_stack['HLSTM'].plot_loss(do_plot_loss)
-    evaluation = machine_stack['HLSTM'].evaluate()
-    save_model(machine_stack['HLSTM'].model, name)
-    '''
+    #batchStack['batch1'].plot_batch(sensor_list, 1)
+        HLSTM = machine_stack['HLSTM'].train(epochs)
+        machine_stack['HLSTM'].plot_loss(do_plot_loss)
+        evaluation = machine_stack['HLSTM'].evaluate()
+        save_model(machine_stack['HLSTM'].model, name)
+    machine_stack['HLSTM'].predict_batch(1)

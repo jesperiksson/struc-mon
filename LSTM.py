@@ -1,6 +1,6 @@
 #Other files and classes
 from util import *
-from LSTMdata import * 
+from LSTMbatch import * 
 # Modules
 import tensorflow as tf
 from keras.models import Sequential
@@ -16,10 +16,12 @@ class LongShortTermMemoryMachine():
                  architecture,
                  batchStack,
                  data_split,
+                 name,
                  pred_sensor = 2,
                  n_sensors = 3,
                  feature_wise_normalization = False,
-                 early_stopping = True):
+                 early_stopping = True,
+                 existing_model = False):
 
         """
         Args:
@@ -28,6 +30,7 @@ class LongShortTermMemoryMachine():
         self.architecture = architecture
         self.batchStack = batchStack
         self.data_split = data_split
+        self.name = name
         # TODO Feature-wise normalization of the data
         if feature_wise_normalization == True:
             pass
@@ -49,29 +52,39 @@ class LongShortTermMemoryMachine():
         self.n_sensors = n_sensors
         self.activation='relu'
         self.loss='mse'           
- 
-        model = Sequential()
-        if self.architecture['direction'] == 'uni':            
-            model.add(LSTM(self.architecture['n_units'][0], 
-                                             activation = self.activation,
-                                             return_sequences = True,
-                                             input_shape=(None, self.n_sensors -1)))
-            for i in range(self.architecture['n_LSTM_layers']-1):
-                model.add(LSTM(self.architecture['n_units'][i+1]))
+        if existing_model == False: 
+            model = Sequential()
+            if self.architecture['direction'] == 'uni':            
+                model.add(LSTM(self.architecture['n_units'][0], 
+                                                 activation = self.activation,
+                                                 return_sequences = True,
+                                                 input_shape=(None, self.n_sensors -1)))
+                for i in range(self.architecture['n_LSTM_layers']-1):
+                    model.add(LSTM(self.architecture['n_units'][i+1]))
 
-        elif self.architecture['direction'] == 'uni':
-            model.add(Bidirectional(LSTM(self.architecture['n_units'][0], 
-                                             activation = self.activation,
-                                             return_sequences = True,
-                                             input_shape=(None, self.n_sensors -1))))
-            for i in range(self.architecture[n_LSTM_layers]-1):
-                model.add(Bidirectional(LSTM(self.architecture['n_units'][i+1])))
+            elif self.architecture['direction'] == 'uni':
+                model.add(Bidirectional(LSTM(self.architecture['n_units'][0], 
+                                                 activation = self.activation,
+                                                 return_sequences = True,
+                                                 input_shape=(None, self.n_sensors -1))))
+                for i in range(self.architecture[n_LSTM_layers]-1):
+                    model.add(Bidirectional(LSTM(self.architecture['n_units'][i+1])))
 
-        model.add(Dense(1))
-        model.compile(optimizer='adam', loss='mse', metrics=['mae','acc'])
-        model.summary()            
-        self.model = model
-        self.history = None 
+            model.add(Dense(1))
+            model.compile(optimizer='adam', loss='mse', metrics=['mae','acc'])
+            model.summary()            
+            self.model = model
+        elif existing_model == True:
+            path = 'models/'+self.name+'.json'
+            json_file = open(path)
+            loaded_model_json = json_file.read()
+            json_file.close()
+            loaded_model = model_from_json(loaded_model_json)
+            self.model = loaded_model
+            print('\n Loaded model: ', name)
+        else:
+            raise Error
+        self.history = None
 
     def train(self, epochs = 200): # Training and validating a model on threspective datasets
         
@@ -153,12 +166,12 @@ class LongShortTermMemoryMachine():
                     yield (patterns, targets)
         evaluation = self.model.evaluate_generator(evaluation_generator(), 
                                                    steps = int(self.n_batches*self.data_split[2]/100), 
-                                                   verbose = 1
-                                                   )
+                                                   verbose = 1)
         return evaluation
 
-    def evaluate_batch():
-
+    def predict_batch(self, batch):
+        self.model.predict_on_batch(self.batchStack['batch'+str(batch)])
+        
         return
 
     def plot_loss(self, show_plot = False):

@@ -73,4 +73,6 @@ def save_model(model,name):
     print('Saved model:', name)
 
 def load_model(): #TODO
+
+    
     pass   

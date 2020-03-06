@@ -10,14 +10,14 @@ class LongShortTermMemoryBatch():
         self.n_sensors = np.shape(self.data)[0]
         self.batch = np.array(data) 
 
-    def plot_batch(self, sensor_dict, which_batch = 1):
-        fig, axs = plt.figure()
+    def plot_batch(self, sensor_list, which_batch = 1):
+        fig, axs = plt.subplots(self.n_sensors, 1, constrained_layout = True)
         for i in range(self.n_sensors):
-            ax = fig.add_subplot(self.n_sensors, 1, i+1)
-            ax.plot(range(self.n_steps), self.data[i], 'b', linewidth=0.1, label=sensor_dict.get(i))
-            ax.set_title(sensor_dict.get(i))
+            axs[i].plot(range(self.n_steps), self.data[i], 'b', linewidth=0.1)
+            axs[i].set_title(sensor_list[i])
+            axs[i].set_xlabel('timestep')
+            axs[i].set_ylabel('acceleration')
         plt.suptitle('Batch '+str(which_batch))
-        plt.legend()
         plt.show()
         return
         
