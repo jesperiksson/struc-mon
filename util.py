@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
+from keras.models import model_from_json
 import pandas as pd
 import os
 import h5py
@@ -60,4 +61,16 @@ def fit_H_to_LSTM(data_split, path):
             })
     return batchStack
 
-#fit_H_to_LSTM(data_split = [60,20,20])
+def save_model(model,name):
+    '''
+    https://machinelearningmastery.com/save-load-keras-deep-learning-models/
+    '''
+    model_json = model.to_json()
+    with open('models/'+name+'.json', 'w') as json_file:
+        json_file.write(model_json)
+        # serialize weights to HDF5
+    model.save_weights('models/'+name+'.h5')
+    print('Saved model:', name)
+
+def load_model(): #TODO
+    pass   

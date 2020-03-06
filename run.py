@@ -5,7 +5,7 @@ from tensorflow import keras
 import matplotlib.pyplot as plt
 import pandas as pd 
 from scipy.io import loadmat
-from datetime import datetime, date, time
+#from datetime import datetime, date, time
 
 # Class files
 from LSTM import * 
@@ -20,30 +20,48 @@ if __name__ == "__main__":
     '''
     Hyperparameters
     '''
-    #Network
+    #Model
+    architecture = {
+        'direction' : 'uni', # uni or bi (uni a.k.a. vanilla net)
+        'n_LSTM_layers' : 2,
+        'n_units' : [200, 200, 100]
+    }
     train_percentage = 60
     test_percentage = 20
     validation_percentage = 20
-    n_batches = 20
     data_split = [train_percentage, test_percentage, validation_percentage]
     assert sum(data_split) == 100
-    split_mode = 'last' # or random
-    pred_sensor = 2 # Which sensor to be the target, the other sensors are patterns
-    net_type = 'vanilla'
-    feature_wise_normalization = True
+    split_mode = 'last' # or shuffle
+    sensor_key = 'third'
+    sensor_dict = {
+        'half' : 0,
+        'quarter' : 1,
+        'third' : 2}
+    pred_sensor = sensor_dict[sensor_key] # Which sensor to be the target, the other sensors are patterns
+    n_sensors = len(sensor_dict)
+    feature_wise_normalization = True # TODO
+    early_stopping = True
     #Training
-    epochs = 200
+    epochs = 2
+
+    name = str(train_percentage)+str(test_percentage)+str(validation_percentage)+split_mode+sensor_key+str(epochs)
 
     batchStack = fit_H_to_LSTM(data_split, path = 'H/')
 
     '''Stack of machines'''
     machine_stack = {
-        'HLSTM' : LongShortTermMemoryMachine(batchStack, pred_sensor, net_type, feature_wise_normalization)
-        
-
+        'HLSTM' : LongShortTermMemoryMachine(architecture,
+                                             batchStack,
+                                             data_split,
+                                             pred_sensor,
+                                             n_sensors,
+                                             feature_wise_normalization,
+                                             early_stopping
+                                             )
     }
     
     HLSTM = machine_stack['HLSTM'].train(epochs)
-
-    prediction = machine_stack['HLSTM'].predict()
+    machine_stack['HLSTM'].plot_loss()
+    evaluation = machine_stack['HLSTM'].evaluate()
+    save_model(machine_stack['HLSTM'].model, name)
     
