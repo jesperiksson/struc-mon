@@ -1,4 +1,4 @@
-#Other files and classes
+# Other files and classes
 from util import *
 from LSTMbatch import * 
 # Modules
@@ -6,14 +6,13 @@ import tensorflow as tf
 import keras
 import os
 from keras.models import Sequential, model_from_json
-from keras.layers import Dense, LSTM
+from keras.layers import Dense, LSTM, BatchNormalization, Bidirectional
 from keras import metrics, callbacks
 from keras.utils import plot_model
 from matplotlib import pyplot
 from keras.optimizers import RMSprop
 
-class LongShortTermMemoryMachine():
-
+class NeuralNet():
     def __init__(self,
                  architecture,
                  batchStack,
@@ -33,18 +32,14 @@ class LongShortTermMemoryMachine():
         self.batchStack = batchStack
         self.data_split = data_split
         self.name = name
-        # TODO Feature-wise normalization of the data
-        if feature_wise_normalization == True:
-            pass
-        else:
-            pass
+        self.model_type = self.architecture['model_type']
         if early_stopping == True:
             '''
             https://machinelearningmastery.com/how-to-stop-training-deep-neural-networks-at-the-right-time-using-early-stopping/
             '''
             self.early_stopping = [keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                 min_delta=0, 
-                                                 patience=0,
+                                                 min_delta=0.0001, 
+                                                 patience=2,
                                                  verbose=1,
                                                  mode='auto')]
         else:
@@ -52,43 +47,52 @@ class LongShortTermMemoryMachine():
         self.n_batches = len(self.batchStack)
         self.pred_sensor = pred_sensor
         self.n_sensors = n_sensors
+        if feature_wise_normalization == True:
+            for i in range(len(self.batchStack)):
+                for j in range(self.n_sensors):
+                    data = self.batchStack['batch'+str(i)].data[j]
+                    mean = data.mean(axis=0)
+                    data -= mean
+                    std = data.std(axis=0)
+                    data /= std
+                    self.batchStack['batch'+str(i)].data[j] = data
+        else:
+            pass
         self.activation='relu'
-        self.loss='mse'           
-        if existing_model == False: 
-            model = Sequential()
+        self.loss='mse'
+        self.existing_model = existing_model           
+        if self.existing_model == False: 
             if self.architecture['direction'] == 'uni':            
                 model.add(LSTM(self.architecture['n_units'][0], 
-                                                 activation = self.activation,
-                                                 return_sequences = True,
-                                                 input_shape=(None, self.n_sensors -1)))
+                               activation = self.activation,
+                               return_sequences = True,
+                               input_shape=(None, n_features)))
                 for i in range(self.architecture['n_LSTM_layers']-1):
                     model.add(LSTM(self.architecture['n_units'][i+1]))
 
-            elif self.architecture['direction'] == 'uni':
+            elif self.architecture['direction'] == 'bi':
                 model.add(Bidirectional(LSTM(self.architecture['n_units'][0], 
                                                  activation = self.activation,
                                                  return_sequences = True,
-                                                 input_shape=(None, self.n_sensors -1))))
-                for i in range(self.architecture[n_LSTM_layers]-1):
+                                                 input_shape=(None, n_features))))
+                for i in range(self.architecture['n_LSTM_layers']-1):
                     model.add(Bidirectional(LSTM(self.architecture['n_units'][i+1])))
 
-            model.add(Dense(1))
-            model.compile(optimizer='adam', loss='mse', metrics=['mae','acc'])
-            model.summary()            
-            self.model = model
-        elif existing_model == True:
-            path = 'models/'+self.name+'.json'
-            json_file = open(path)
+        elif self.existing_model == True:
+            model_path = 'models/'+self.name+'.json'
+            weights_path = 'models/'+self.name+'.h5'
+            json_file = open(model_path)
             loaded_model_json = json_file.read()
             json_file.close()
             loaded_model = model_from_json(loaded_model_json)
+            loaded_model.load_weights(weights_path)
             self.model = loaded_model
             print('\n Loaded model: ', name)
+            self.model.summary()
         else:
             raise Error
-        self.history = None
 
-    def train(self, epochs = 200): # Training and validating a model on threspective datasets
+    def train(self, epochs = 200): # Training and validating a model on the respective datasets
         
         """
         Args:
@@ -99,91 +103,53 @@ class LongShortTermMemoryMachine():
              [[ak11, ..., ak1n], [ak21, ..., ak2n], ..., [akm1, ..., akmn]]]
         """
         self.epochs = epochs
-        def train_generator():
-            train_data = np.array([])
+        def train_generator(self):
             i = 0
+            task = 'train'
             while True:
                 i += 1 
                 key = 'batch'+str(i%len(self.batchStack))
                 data = self.batchStack[key].data
-                if self.batchStack[key].category == 'train':
-                    train_batch = np.array(self.batchStack[key].data)
-                    targets = np.reshape(train_batch[self.pred_sensor,:],
-                                         [np.shape(data)[1], 1])
-                    patterns = np.reshape(np.delete(train_batch,
-                                          self.pred_sensor, axis=0),
-                                          [np.shape(data)[1], 1, 2])
-                    yield(patterns, targets)
+                yield generator(self, data, key, task)
                 
-        # TODO validation_generation
-        def validation_generator():
-            validation_data = np.array([])
+        def validation_generator(self):
             i = 0
+            task = 'validation'
             while True:
                 i +=1
                 key = 'batch'+str(i%len(self.batchStack))
                 data = self.batchStack[key].data
-                if self.batchStack[key].category == 'validation':
+                yield generator(self, data, key, task)
+
+        def generator(self, data, key, task):
+            if self.batchStack[key].category == task:
+                if self.architecture['prediction'] == 'entire_series':
                     validation_batch = np.array(self.batchStack[key].data)
                     targets = np.reshape(validation_batch[self.pred_sensor,:],
-                                         [np.shape(data)[1], 1])
+                                         [1, np.shape(data)[1], 1])
                     patterns = np.reshape(np.delete(validation_batch,
                                           self.pred_sensor, axis=0),
-                                          [np.shape(data)[1], 1, 2])
-                    yield(patterns, targets)
-
+                                          [1, np.shape(data)[1], 2])
+                elif self.architecture['prediction'] == 'end_of_series':
+                    train_batch = np.array(self.batchStack[key].data[self.pred_sensor])
+                    split = -self.architecture['n_pred_units']
+                    targets = np.array(train_batch[split-1:-1])
+                    targets = np.reshape(targets, [1, np.shape(targets)[0], 1])
+                    patterns = np.array(train_batch[:split])  
+                    patterns = np.reshape(patterns, [1, np.shape(patterns)[0], 1])  
+                return(patterns, targets)
 
         # fit model
-        self.history = self.model.fit_generator(train_generator(),
+        self.history = self.model.fit_generator(train_generator(self),
                                                 steps_per_epoch = int(self.n_batches*self.data_split[0]/100),
                                                 epochs = self.epochs,
                                                 verbose=1,
                                                 callbacks = self.early_stopping, 
-                                                validation_data = validation_generator(),
-                                                validation_steps = int(self.n_batches*self.data_split[1]/100)
-                                                )
+                                                validation_data = validation_generator(self),
+                                                validation_steps = int(self.n_batches*self.data_split[1]/100))
+        self.model.summary()
         self.loss = self.history.history['loss']
         self.val_loss = self.history.history['val_loss']
+        self.used_epochs = len(self.val_loss)
         
         return
-
-    def evaluate(self): # Evaluating the model on the test dataset
-        '''
-        Args:
-        '''
-        def evaluation_generator():
-            test_data = np.array([]);
-            i = 0
-            while True:
-                i += 1
-                key = 'batch'+str(i%len(self.batchStack))
-                data = self.batchStack[key].data
-                if self.batchStack[key].category == 'test':
-                    test_batch = np.array(self.batchStack[key].data)
-                    targets = np.reshape(test_batch[self.pred_sensor,:],
-                                         [np.shape(data)[1], 1])
-                    patterns = np.reshape(np.delete(test_batch,
-                                          self.pred_sensor, axis=0),
-                                          [np.shape(data)[1], 1, 2])                    
-                    yield (patterns, targets)
-        evaluation = self.model.evaluate_generator(evaluation_generator(), 
-                                                   steps = int(self.n_batches*self.data_split[2]/100), 
-                                                   verbose = 1)
-        return evaluation
-
-    def predict_batch(self, batch_num):
-        batch = self.batchStack['batch'+str(batch_num)].data[0:2]
-        self.model.predict_on_batch(batch)
-        
-        return
-
-    def plot_loss(self, show_plot = False):
-        plt.figure()
-        plt.plot(range(1,self.epochs+1), self.loss, 'bo', label='Training loss')
-        plt.plot(range(1,self.epochs+1), self.val_loss, 'b', label='Validation loss')
-        if show_plot == True:
-            plt.title('Training and validation loss')
-            plt.legend()
-            plt.show()
-        else: 
-            pass
