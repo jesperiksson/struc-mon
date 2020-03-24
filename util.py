@@ -7,6 +7,7 @@ from keras.models import model_from_json, Sequential
 from keras.layers import Dense, LSTM, Bidirectional, TimeDistributed, Input, RepeatVector, Dropout
 from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
 import pandas as pd
 import os
 import h5py
@@ -17,7 +18,7 @@ from MLPbatch import *
 
 ''' Utilities for various classes'''
 
-def fit_H_to_NN(data_split, path):
+def fit_to_NN(data_split, path):
     """
     Function that fits raw data into a format that fits LSTM, i.e. array of arrays of acceleration signals in time-domain
     """
@@ -165,19 +166,20 @@ def predict_batch(self, batch_num, sensor):
                     prediction, 
                     batch_num,
                     hindsight) 
-                    #np.reshape(hindsight, [self.architecture['n_pred_units'], 1]))
     return prediction
 
 def plot_loss(self, show_plot = False):
     plt.figure()
-    print(np.shape(self.loss), self.used_epochs)
     plt.plot(range(1,self.used_epochs+1), self.loss, 'bo', label='Training loss')
     plt.plot(range(1,self.used_epochs+1), self.val_loss, 'b', label='Validation loss')
     if show_plot == True:
         plt.title('Training and validation loss')
+        plt.xlabel = 'Epochs'
+        plt.ylabel = self.loss
         plt.legend()
         plt.show()
     else: 
         pass
 
+        
 
