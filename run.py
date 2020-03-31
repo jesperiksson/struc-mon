@@ -37,7 +37,7 @@ if __name__ == "__main__":
         'healthy' : [33, 43, 52 , 62, 71, 81, 90, 100],
         'sensors' : [10, 45, 90, 135, 170],
         'speeds' : 20,
-        'data_split' : [60, 20, 20],
+        'data_split' : [60, 20, 20], # sorting of data into training testing and validation
 # MLP-specific settings
         'delta' : 3,
         'n_pattern_steps' : 200,
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     do_plot_loss= True  
 
     # Testing
-    mse_threshold = 0.000015  
+    mse_threshold = 0.000015  # minum error alowed to continued
 
     name = (architecture['prediction']+'_'+ \
            architecture['sensor_key']+'_'+ \
@@ -83,7 +83,7 @@ if __name__ == "__main__":
         from LSTM import *
     elif architecture['model_type'] == 'AELSTM':
         from AELSTM import *
-    try:
+    try:        # check for excisting net and if so open it
         f = open('models/'+name+'.json')
         machine_stack = {
             name : NeuralNet(architecture,
