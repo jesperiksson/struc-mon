@@ -5,8 +5,8 @@ from MLPbatch import *
 import tensorflow as tf
 import keras
 import os
-from keras.models import Sequential, model_from_json
-from keras.layers import Dense, Activation 
+from keras.models import Sequential, Model, model_from_json
+from keras.layers import Input, Dense, concatenate, Activation 
 from keras import metrics, callbacks, regularizers
 from keras.utils import plot_model
 from matplotlib import pyplot
@@ -15,17 +15,15 @@ from keras.optimizers import RMSprop
 class NeuralNet():
     def __init__(self,
                  architecture,
-                 batchStack,
                  data_split,
                  name,
                  pred_sensor = 2,
                  n_sensors = 3,
-                 feature_wise_normalization = False,
                  early_stopping = True,
                  existing_model = False):
 
         self.architecture = architecture
-        self.batchStack = batchStack
+        self.ad_hoc_batchStack = None
         self.data_split = data_split
         self.name = name
         self.model_type = self.architecture['model_type']
@@ -41,32 +39,25 @@ class NeuralNet():
                                                  mode='auto')]
         else:
             self.early_stopping = None
-        self.n_batches = len(self.batchStack)
-        self.pred_sensor = pred_sensor
-        self.n_sensors = n_sensors
-        if feature_wise_normalization == True:
-            for i in range(len(self.batchStack)):
-                for j in range(self.n_sensors):
-                    data = self.batchStack['batch'+str(i)].data[j]
-                    mean = data.mean(axis=0)
-                    data -= mean
-                    std = data.std(axis=0)
-                    data /= std
-                    self.batchStack['batch'+str(i)].data[j] = data
-        else:
-            pass
         self.loss='mse'
         self.existing_model = existing_model           
-        if self.existing_model == False: 
-            model = Sequential()
-            model.add(Dense(self.architecture['n_units'][0],
-                            activation = self.architecture['MLPactivation'],
-                            use_bias = True, 
-                            kernel_regularizer = regularizers.l2(0.0001),
-                            input_shape=(architecture['n_pattern_steps'], )))
-            for i in range(self.architecture['n_layers']-1):
-                model.add(Dense(self.architecture['n_units'][i+1]))
-            model.add(Dense(1))
+        if self.existing_model == False:
+            acceleration_input = Input(shape=(architecture['n_pattern_steps'], ), name='acceleration_input')
+            accel_layer = Dense(self.architecture['n_units'][0],
+                                activation = self.architecture['MLPactivation'],
+                                use_bias = True,
+                                kernel_regularizer = regularizers.l2(0.0001))(acceleration_input)
+            element_input = Input(shape(1), name='element_input') # damaged element
+            speed_input = Input(shape(1), name='speed_input') 
+            damage_input = Input(shape=(1), name='damage_input') # Ratio of the Young's modulous(210GPa)
+            x = concatenate([accel_layer, element_input, speed_input, damage_input])
+            x = Dense(architecture['n_units'][1], activation='sigmoid')(x)
+            if architecture['target'] == 'E':
+                output = Dense(1, activation='sigmoid', name='E_output')(x)
+            elif architecture['target'] == 'acceleration':
+                output = Dense(architecture['n_target_steps'], activation='sigmoid', name='acceleration_output')
+            self.model = Model(inputs=(acceleration_input, element_input, speed_input, damage_input)
+                               outputs = output)
             model.compile(optimizer='adam', loss='mse', metrics=['mse','acc'])
             model.summary()             
             self.model = model
@@ -130,6 +121,61 @@ class NeuralNet():
         self.val_loss = self.history.history['val_loss']
         self.used_epochs = len(self.val_loss)
         return
+
+    def train_ad_hoc(self, batchStack, epochs = 10):
+        delta = self.architecture['delta']
+        n_pattern_steps = self.architecture['n_pattern_steps']
+        n_target_steps = self.architecture['n_target_steps']
+        
+ 
+        patterns = np.empty([n_series,n_pattern_steps])
+        targets = np.empty([n_series,n_target_steps])          
+        
+        for i in range(self.architecture['speeds']):
+            key = 'batch'+str(i%len(batchStack))
+            batch = batchStack['key']
+            n_series = int(np.shape(batch.data)[1])-int(delta*n_pattern_steps)
+            for j in range(n_series):                
+                pattern_indices = np.arange(j,j+(delta)*n_pattern_steps,delta)
+                target_indices = j+delta*n_pattern_steps
+                patterns[j,:] = batchStack[key].batch[self.architecture['sensor_key']][pattern_indices]
+                targets[j,:] = batchStack[key].batch[self.architecture['sensor_key']][target_indices]
+
+            self.history = model.train_on_batch({  'acceleration_input' : patterns,
+                                                    'element_input' : batch.element,
+                                                    'speed_input': batch.speed,
+                                                    'damage_input' : batch.damage_state}
+                                                    {self.architecture['target'] : targets},
+                                                    epochs,
+                                                    verbose = 1,
+                                                    validation_split = self.architecture['data_split'][1])
+
+        def generator(self, task):    
+            i = 0
+            while True:
+                key = 'batch'+str(i%len(self.batchStack))
+                i+=1
+                if self.batchStack[key].category == task:
+                    for j in range(n_series):                
+                        pattern_indices = np.arange(j,j+(delta)*n_pattern_steps,delta)
+                        target_indices = j+delta*n_pattern_steps
+                        patterns[j,:] = self.batchStack[key].batch[self.architecture['sensor_key']][pattern_indices]
+                        targets[j,:] = self.batchStack[key].batch[self.architecture['sensor_key']][target_indices]
+                    yield(patterns, targets)
+                else:
+                    pass
+        self.history = self.model.fit_generator( generator(self,'train'), 
+                                                 steps_per_epoch=1, 
+                                                 epochs=epochs, 
+                                                 verbose=1,
+                                                 callbacks=self.early_stopping, 
+                                                 validation_data = generator(self,'validation'),
+                                                 validation_steps=10)
+        self.model.summary()
+        self.loss = self.history.history['loss']
+        self.val_loss = self.history.history['val_loss']
+        self.used_epochs = len(self.val_loss)
+        return
     
     def evaluation(self):
         delta = self.architecture['delta']
@@ -165,7 +211,7 @@ class NeuralNet():
         n_pattern_steps = self.architecture['n_pattern_steps']
         n_target_steps = self.architecture['n_target_steps']
         n_series = int(batchStack['batch1'].diff)-int(delta*n_pattern_steps)
-        key = 'batch'+str(batch%len(self.batchStack))
+        key = 'batch'+str(batch%len(batchStack))
         n_series = int(batchStack[key].diff)-int(delta*n_pattern_steps)
         patterns = np.empty([n_series,n_pattern_steps])
         targets = np.empty([n_series,n_target_steps])
@@ -183,7 +229,7 @@ class NeuralNet():
                 target_indices = i+delta*n_pattern_steps
                 patterns[i,:] = batchStack[key].batch[self.architecture['sensor_key']][pattern_indices]
                 targets[i,:] = batchStack[key].batch[self.architecture['sensor_key']][target_indices]
-            return self.model.predict(patterns, batch_size=10, verbose=1), targets            
+            return self.model.predict(patterns, batch_size=10, verbose=0), targets            
         
         return
 
@@ -202,7 +248,6 @@ class NeuralNet():
             if batch.category == 'validation':
                 pred, target = self.prediction(i)
                 mse = mean_squared_error(pred, target)
-                print(mse)
                 if mse > mse_threshold:
                     wrong += 1
                 else:
@@ -228,7 +273,6 @@ class NeuralNet():
             if batch.category == 'validation':
                 pred, target = self.prediction(i, True, batchStack)
                 mse = mean_squared_error(pred, target)
-                print(mse)
                 if mse > mse_threshold:
                     right += 1
                 else:

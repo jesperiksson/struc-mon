@@ -13,7 +13,7 @@ import os
 import h5py
 
 # Classes
-from LSTMbatch import LongShortTermMemoryBatch as LSTMbatch
+from LSTMbatch import DataBatch 
 from MLPbatch import *
 
 ''' Utilities for various classes'''
@@ -55,55 +55,97 @@ def fit_to_NN(data_split, path):
 
         if i/n_files <= data_split[0]/100:
             batchStack.update({
-                'batch'+str(i) : LSTMbatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
+                'batch'+str(i) : DataBatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
                                  i,     
                                  diff,
+                                 speed,
                                  category = 'train')
             })
         elif i/n_files > data_split[0]/100 and i/n_files <= (data_split[0]+data_split[1])/100:
             batchStack.update({
-                'batch'+str(i) : LSTMbatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
+                'batch'+str(i) : DataBatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
                                  i,
+                                 speed,
                                  diff,
                                  category = 'validation')
             })
         else:
             batchStack.update({
-                'batch'+str(i) : LSTMbatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
+                'batch'+str(i) : DataBatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
                                  i,
+                                 speed,
                                  diff,
                                  category = 'test')
             })
     return batchStack
 
-def fit_sin_to_NN(data_split, path):
+
+def fit_ad_hoc_NN(machine, elements, healthy, sensors, speeds, path = None):
+    data = np.empty([])
+    path1 = '/newly_generated_measurements'
     batchStack = {}
-    datapoints = 200
-    n_batches = 1000
-    
-    x = np.array(range(datapoints))
-    for i in range(n_batches):
-        amplitude = np.random.rand(1)*0
-        if i/n_batches <= data_split[0]/100:
+    if path == None:
+        for i in range(len(elements)):
+            path2 = 'e'+str(elements(i))
+            for j in range(len(healthy)):
+                path3 = str(healthy(j))+'%'
+                path = path1+path2+path3
+                speed = sort(os.listdir(path +'s10'))
+                s10path = path+'s10'
+                s45path = path+'s45'
+                s90path = path+'s90'
+                s135path = path+'s135'
+                s170path = path+'s170'
+                for l in range(len(speed)):
+                    if i%int(machine.architecture['data_split'][1]/100*len(speed)) == 0:
+                        category = 'validation'
+                    else:
+                        category = 'train'
+                    s10mat = preprocessing.normalize(h5py.File(s10path+speed[l],'r').get('acc'))
+                    s45mat = preprocessing.normalize(h5py.File(s45path+speed[l],'r').get('acc'))
+                    s90mat = preprocessing.normalize(h5py.File(s90path+speed[l],'r').get('acc'))
+                    s135mat = preprocessing.normalize(h5py.File(s135path+speed[l],'r').get('acc'))
+                    s170mat = preprocessing.normalize(h5py.File(s170path+speed[l],'r').get('acc'))
+                    batchStack.update({
+                    'batch'+str(l) :    Databatch([s10[1,:], s45[1,:], s90[1,:], s135[1,:], s170[1,:]],
+                                        l,
+                                        speed,
+                                        element,
+                                        category,
+                                        damage_state = healthy[j])
+                    })
+                        
+                
+                NeuralNet.train_ad_hoc(machine, batchStack, epochs=200)
+    else: 
+        speed = sort(os.listdir(path +'s10'))
+        s10path = path+'s10'
+        s45path = path+'s45'
+        s90path = path+'s90'
+        s135path = path+'s135'
+        s170path = path+'s170'
+        for l in range(len(speed)):
+            if i%int(machine.architecture['data_split'][1]/100*len(speed)) == 0:
+                category = 'validation'
+            else:
+                category = 'train'
+            s10mat = preprocessing.normalize(h5py.File(s10path+speed[l],'r').get('acc'))
+            s45mat = preprocessing.normalize(h5py.File(s45path+speed[l],'r').get('acc'))
+            s90mat = preprocessing.normalize(h5py.File(s90path+speed[l],'r').get('acc'))
+            s135mat = preprocessing.normalize(h5py.File(s135path+speed[l],'r').get('acc'))
+            s170mat = preprocessing.normalize(h5py.File(s170path+speed[l],'r').get('acc'))
             batchStack.update({
-            'batch'+str(i) : MLPbatch(amplitude*[np.array(np.sin(x)), np.array(np.sin(x)), np.array(np.sin(x))],
-                             i,
-                             category = 'train')
-        })
-        elif i/n_batches > data_split[0]/100 and i/n_batches <= (data_split[0]+data_split[1])/100:
-            batchStack.update({
-            'batch'+str(i) : MLPbatch(amplitude*[np.array(np.sin(x)), np.array(np.sin(x)), np.array(np.sin(x))],
-                             i,
-                             category = 'validation')
-        })
-        else:
-            batchStack.update({
-            'batch'+str(i) : MLPbatch(amplitude*[np.array(np.sin(x)), np.array(np.sin(x)), np.array(np.sin(x))],
-                             i,
-                             category = 'test')
-        })
-    return batchStack
-    
+            'batch'+str(l) :    Databatch([s10[1,:], s45[1,:], s90[1,:], s135[1,:], s170[1,:]],
+                                l,
+                                speed,
+                                element,
+                                category,
+                                damage_state = healthy[j])
+            })
+                
+        
+        NeuralNet.train_ad_hoc(machine, batchStack, epochs=200)
+
 def save_model(model,name):
     '''
     https://machinelearningmastery.com/save-load-keras-deep-learning-models/
