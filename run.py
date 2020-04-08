@@ -59,8 +59,6 @@ if __name__ == "__main__":
     # Testing
     mse_threshold = 0.000015  # minum error alowed to continued
 
-    
-
 
     if architecture['model_type'] == 'MLP':
         from MLP import *
@@ -68,7 +66,7 @@ if __name__ == "__main__":
         from LSTM import *
     elif architecture['model_type'] == 'AELSTM':
         from AELSTM import *
-<<<<<<< HEAD
+
     batchStacks = {
     'H' : fit_to_NN(architecture['data_split'],'measurements/H/'),
     '5070' : fit_to_NN(architecture['data_split'],'measurements/D_50%_70/'),
@@ -110,34 +108,4 @@ if __name__ == "__main__":
         }})
         plot_performance(scoreStacks[i])
     plot_prediction(machine_stack[name], batchStack)
-
-=======
-    try:        # check for excisting net and if so open it
-        f = open('models/'+name+'.json')
-        machine_stack = {
-            name : NeuralNet(architecture,
-                 data_split,
-                 name,
-                 pred_sensor,
-                 n_sensors,
-                 early_stopping,
-                 existing_model = True)
-        }
-    except IOError:    
-        machine_stack = {
-            name : NeuralNet(architecture,
-                 data_split,
-                 name,
-                 pred_sensor,
-                 n_sensors,
-                 early_stopping,
-                 existing_model = False)
-        }
-        fit_ad_hoc_NN(machine_stack[name], elements, healthy, sensors)
-        NeuralNet.evaluation(machine_stack[name])
-        plot_loss(machine_stack[name], do_plot_loss)
-        save_model(machine_stack[name].model, name)
-        NeuralNet.prediction(machine_stack[name], 240)
-    H_accuracy = NeuralNet.get_H_score(machine_stack[name], mse_threshold) 
->>>>>>> d93d8972aacdcaac1a32a913992e3c4ce386af8e
 
