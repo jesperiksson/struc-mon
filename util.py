@@ -11,10 +11,10 @@ from sklearn.metrics import mean_squared_error
 import pandas as pd
 import os
 import h5py
+import random
 
 # Classes
-from LSTMbatch import DataBatch 
-from MLPbatch import *
+from MLP import *
 
 ''' Utilities for various classes'''
 
@@ -22,22 +22,35 @@ def fit_to_NN(data_split, path):
     """
     Function that fits raw data into a format that fits LSTM, i.e. array of arrays of acceleration signals in time-domain
     """
+    from Databatch_measurements import DataBatch
     halfpath = path + 'half/'
     quarterpath = path +'quarter/'
     thirdpath = path + 'third/'
 
+    seed = 1337
     half = os.listdir(halfpath)
     half.sort()
+    random.Random(seed).shuffle(half)
+
     quarter = os.listdir(quarterpath)
     quarter.sort()
+    random.Random(seed).shuffle(quarter)
+
     third = os.listdir(thirdpath)
     third.sort()
+    random.Random(seed).shuffle(third)
+
+    file_list = half
+    speeds = np.empty([len(file_list)])
+    for i in range(len(file_list)):
+        speeds[i] = int(file_list[i][-18:-12])
+    normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))
 
     n_files = len(half)
     batchStack = {}
     scaler = MinMaxScaler(feature_range=(-1,1))
     start = 0
-    to = 8000
+    to = -1
     diff = to-start
     for i in range(n_files):
         halfmat = h5py.File(halfpath + half[i],'r')
@@ -50,15 +63,16 @@ def fit_to_NN(data_split, path):
         
 
         thirdmat = h5py.File(thirdpath + third[i],'r')
-        thirddata = preprocessing.normalize(thirdmat.get('acc'))    
+        thirddata = preprocessing.normalize(thirdmat.get('acc')) 
         #thirddata = scaler.fit_transform(np.array(preprocessing.normalize(thirdmat.get('acc')))[:,start:to])
 
+        speed = int(file_list[i][-18:-12])/1000
         if i/n_files <= data_split[0]/100:
             batchStack.update({
                 'batch'+str(i) : DataBatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
                                  i,     
-                                 diff,
                                  speed,
+                                 normalized_speeds[i],
                                  category = 'train')
             })
         elif i/n_files > data_split[0]/100 and i/n_files <= (data_split[0]+data_split[1])/100:
@@ -66,7 +80,7 @@ def fit_to_NN(data_split, path):
                 'batch'+str(i) : DataBatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
                                  i,
                                  speed,
-                                 diff,
+                                 normalized_speeds[i],
                                  category = 'validation')
             })
         else:
@@ -74,40 +88,46 @@ def fit_to_NN(data_split, path):
                 'batch'+str(i) : DataBatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
                                  i,
                                  speed,
-                                 diff,
+                                 normalized_speeds[i],
                                  category = 'test')
             })
     return batchStack
 
 
-def fit_ad_hoc_NN(machine, elements, healthy, sensors, speeds, path = None):
+def fit_ad_hoc_NN(machine, elements, healthy, sensors, path = None):
     data = np.empty([])
-    path1 = '/newly_generated_measurements'
+    path1 = './newly_generated_measurements'
     batchStack = {}
     if path == None:
         for i in range(len(elements)):
-            path2 = 'e'+str(elements(i))
+            path2 = '/e'+str(elements[i])
             for j in range(len(healthy)):
-                path3 = str(healthy(j))+'%'
-                path = path1+path2+path3
-                speed = sort(os.listdir(path +'s10'))
-                s10path = path+'s10'
-                s45path = path+'s45'
-                s90path = path+'s90'
-                s135path = path+'s135'
-                s170path = path+'s170'
-                for l in range(len(speed)):
-                    if i%int(machine.architecture['data_split'][1]/100*len(speed)) == 0:
+                path3 = '/'+str(healthy[j])+'%'
+                path = path1+path2+path3+'/'
+                speeds = os.listdir(path +'s10')
+                speeds.sort()
+                element = elements[i]
+                s10path = path+'s10/'
+                s45path = path+'s45/'
+                s90path = path+'s90/'
+                s135path = path+'s135/'
+                s170path = path+'s170/'
+                for l in range(len(speeds)):
+                    speed = 0
+                    if i%int(machine.architecture['data_split'][1]/100*len(speeds)) == 0:
                         category = 'validation'
                     else:
                         category = 'train'
-                    s10mat = preprocessing.normalize(h5py.File(s10path+speed[l],'r').get('acc'))
-                    s45mat = preprocessing.normalize(h5py.File(s45path+speed[l],'r').get('acc'))
-                    s90mat = preprocessing.normalize(h5py.File(s90path+speed[l],'r').get('acc'))
-                    s135mat = preprocessing.normalize(h5py.File(s135path+speed[l],'r').get('acc'))
-                    s170mat = preprocessing.normalize(h5py.File(s170path+speed[l],'r').get('acc'))
-                    batchStack.update({
-                    'batch'+str(l) :    Databatch([s10[1,:], s45[1,:], s90[1,:], s135[1,:], s170[1,:]],
+                    s10 = preprocessing.normalize(h5py.File(s10path+speeds[l],'r').get('acc'))
+                    s45 = preprocessing.normalize(h5py.File(s45path+speeds[l],'r').get('acc'))
+                    s90 = preprocessing.normalize(h5py.File(s90path+speeds[l],'r').get('acc'))
+                    s135 = preprocessing.normalize(h5py.File(s135path+speeds[l],'r').get('acc'))
+                    s170 = preprocessing.normalize(h5py.File(s170path+speeds[l],'r').get('acc'))
+                    batchStack.update({'batch'+str(i) : DataBatch([ np.array(s10[1,:]),
+                                                                    np.array(s45[1,:]),
+                                                                    np.array(s90[1,:]),
+                                                                    np.array(s135[1,:]),
+                                                                    np.array(s170[1,:])],
                                         l,
                                         speed,
                                         element,
@@ -117,25 +137,26 @@ def fit_ad_hoc_NN(machine, elements, healthy, sensors, speeds, path = None):
                         
                 
                 NeuralNet.train_ad_hoc(machine, batchStack, epochs=200)
-    else: 
-        speed = sort(os.listdir(path +'s10'))
-        s10path = path+'s10'
-        s45path = path+'s45'
-        s90path = path+'s90'
-        s135path = path+'s135'
-        s170path = path+'s170'
-        for l in range(len(speed)):
+    else: # when a path is provided 
+        speed = os.listdir(path +'s10')
+        speed.sort()
+        s10path = path+'s10/'
+        s45path = path+'s45/'
+        s90path = path+'s90/'
+        s135path = path+'s135/'
+        s170path = path+'s170/'
+        for i in range(len(speed)):
             if i%int(machine.architecture['data_split'][1]/100*len(speed)) == 0:
                 category = 'validation'
             else:
                 category = 'train'
-            s10mat = preprocessing.normalize(h5py.File(s10path+speed[l],'r').get('acc'))
-            s45mat = preprocessing.normalize(h5py.File(s45path+speed[l],'r').get('acc'))
-            s90mat = preprocessing.normalize(h5py.File(s90path+speed[l],'r').get('acc'))
-            s135mat = preprocessing.normalize(h5py.File(s135path+speed[l],'r').get('acc'))
-            s170mat = preprocessing.normalize(h5py.File(s170path+speed[l],'r').get('acc'))
+            s10mat = preprocessing.normalize(h5py.File(s10path+speed[i],'r').get('acc'))
+            s45mat = preprocessing.normalize(h5py.File(s45path+speed[i],'r').get('acc'))
+            s90mat = preprocessing.normalize(h5py.File(s90path+speed[i],'r').get('acc'))
+            s135mat = preprocessing.normalize(h5py.File(s135path+speed[i],'r').get('acc'))
+            s170mat = preprocessing.normalize(h5py.File(s170path+speed[i],'r').get('acc'))
             batchStack.update({
-            'batch'+str(l) :    Databatch([s10[1,:], s45[1,:], s90[1,:], s135[1,:], s170[1,:]],
+            'batch'+str(i) :    Databatch([s10[1,:], s45[1,:], s90[1,:], s135[1,:], s170[1,:]],
                                 l,
                                 speed,
                                 element,
@@ -215,7 +236,7 @@ def plot_loss(self, show_plot = False):
     plt.plot(range(1,self.used_epochs+1), self.loss, 'bo', label='Training loss')
     plt.plot(range(1,self.used_epochs+1), self.val_loss, 'b', label='Validation loss')
     if show_plot == True:
-        plt.title('Training and validation loss')
+        plt.title = 'Training and validation loss'
         plt.xlabel = 'Epochs'
         plt.ylabel = self.loss
         plt.legend()
@@ -223,5 +244,33 @@ def plot_loss(self, show_plot = False):
     else: 
         pass
 
+def plot_performance(scoreStack, title = 'placeholder'):
+    plt.figure()
+    plt.plot(scoreStack['H'][1:-1:2],scoreStack['H'][0:-2:2],'ro',label='Healthy data')
+    plt.plot(scoreStack['5070'][1:-1:2],scoreStack['5070'][0:-2:2],'b+',label='70% reduction at element 50')
+    plt.plot(scoreStack['5090'][1:-1:2],scoreStack['5090'][0:-2:2],'g1',label='90% reduction at element 50')
+    plt.plot(scoreStack['7090'][1:-1:2],scoreStack['7090'][0:-2:2],'kv',label='90% reduction at element 70')
+    plt.xlabel = 'Speed [km/h]'
+    plt.ylabel = 'Mean square error'
+    plt.title = 'Performance'
+    plt.legend()
+    plt.show()
         
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
