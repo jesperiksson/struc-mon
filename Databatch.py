@@ -2,8 +2,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 class DataBatch():
-    def __init__(self, data, batch_num, diff, speed, element, category = 'train', damage_state = 1):
-        self.data = data
+    def __init__(self, data, batch_num, speed, element, category = 'train', damage_state = 1):
+        self.data = np.array(data)
+        print(np.shape(self.data))
         self.category = category
         self.n_steps = np.shape(self.data)[1]
         self.speed = speed

@@ -9,7 +9,8 @@ from keras.models import Sequential, Model, model_from_json
 from keras.layers import Input, Dense, concatenate, Activation, Flatten 
 from keras import metrics, callbacks, regularizers
 from keras.utils import plot_model
-from matplotlib import pyplot
+from keras import backend
+#from matplotlib import pyplot
 from keras.optimizers import RMSprop
 
 class NeuralNet():
@@ -28,22 +29,19 @@ class NeuralNet():
         self.activation = self.architecture['MLPactivation']
         self.sensor_to_predict = sensor_to_predict
         if early_stopping == True:
-            '''
-            https://machinelearningmastery.com/how-to-stop-training-deep-neural-networks-at-the-right-time-using-early-stopping/
-            '''
             self.early_stopping = [keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                 min_delta=0.00000000001, 
-                                                 patience=2,
+                                                 min_delta=0, 
+                                                 patience=3,
                                                  verbose=1,
-                                                 mode='auto')]
-#n_sensors,n_series,n_pattern_steps
+                                                 mode='auto',
+                                                 restore_best_weights=True)]
         else:
             self.early_stopping = None
         self.loss='mse'
         self.existing_model = existing_model
         n_sensors = len(architecture['sensors'])         
         if self.existing_model == False:
-            self.model = set_up_model1(architecture)
+            model = set_up_model3(architecture)
 
         elif self.existing_model == True:
             model_path = 'models/'+self.name+'.json'
@@ -53,16 +51,17 @@ class NeuralNet():
             json_file.close()
             loaded_model = model_from_json(loaded_model_json)
             loaded_model.load_weights(weights_path)
-            self.model = loaded_model
+            model = loaded_model
             print('\n Loaded model: ', name)
-            self.model.compile(optimizer='adam', loss='mse', metrics=['mse','acc'])
-            #self.model.summary()
         else:
             raise Error
-        self.history = None
+        model.compile(optimizer='adam', loss='mse', metrics=[rmse])
+        plot_model(model, to_file='model.png')
+        model.summary()
+        self.model = model
         self.score = None
 
-    def train_measurements(self, batchStack, epochs = 100):
+    def train_measurements(self, batchStack, epochs = 200):
         '''
         Reshapes the data to the form 
         0 [x_00 = a_1, x_01 = a_1+delta, ..., x_0(n_pattern_steps) = a_(delta*n_pattern_steps)]
@@ -72,7 +71,7 @@ class NeuralNet():
         n_series  [x_n_series0 = a_n_series...]
         '''    
         self.history = self.model.fit_generator( generator(self,'train',batchStack), 
-                                                 steps_per_epoch=10, 
+                                                 steps_per_epoch=100, 
                                                  epochs=epochs, 
                                                  verbose=1,
                                                  callbacks=self.early_stopping, 
@@ -84,53 +83,7 @@ class NeuralNet():
         self.used_epochs = len(self.val_loss)
         return
 
-    def train_ad_hoc(self, batchStack, epochs = 10):
-        delta = self.architecture['delta']
-        n_pattern_steps = self.architecture['n_pattern_steps']
-        n_target_steps = self.architecture['n_target_steps']
-        speeds = self.architecture['speeds']
-        n_sensors = len(self.architecture['sensors'])
-        x = {}
-        y = {}
-        
-        def ad_hoc_generator(self, task):
-            i = 0
-            while True:
-                key = 'batch'+str(i%len(batchStack))
-                batch = batchStack[key]
-                if batch.category == task:
-                    n_series = int(np.shape(batch.data)[1])-int(delta*n_pattern_steps)
-                    print(n_series)
-                    for j in range(n_sensors):
-                        print('Sensor number: ', j)
-                        patterns = np.empty([n_sensors,n_pattern_steps,n_series])
-                        targets = np.empty([n_sensors,n_target_steps,n_series]) 
-                        for k in range(n_series):
-                            if k%1000 == 0:
-                                print(k)                
-                            pattern_indices = np.arange(j,j+(delta)*n_pattern_steps,delta)
-                            target_indices = j+delta*n_pattern_steps
-                            patterns[j,:,k] = batch.data[j,pattern_indices]
-                            targets[j,:,k] = batch.data[j,target_indices]
-                    patterns.flatten()
-                    targets.flatten()
-                    inputs = {  'acceleration_input' : patterns,
-                                'element_input' : batch.element,
-                                'speed_input': batch.speed,
-                                'damage_input' : batch.damage_state}
-                    target = {self.architecture['target'] : targets}
-                    print('c')
-                    yield (inputs, target)
-                else: 
-                    pass
-                i += 1
 
-        self.history = self.model.fit_generator(generator = ad_hoc_generator(self, 'train'),
-                                                steps_per_epoch = speeds,
-                                                epochs = 10,
-                                                verbose = 1,
-                                                validation_data = ad_hoc_generator(self,'validation'),
-                                                validation_steps = 1)
   
 
   
@@ -148,35 +101,28 @@ class NeuralNet():
             if batchStack[key].category == 'test':
                 patterns, targets = data_sequence(self, batchStack, key)
                 speed = batchStack[key].speed
-                score = self.model.test_on_batch(patterns, targets, reset_metrics=True)[0]
+                score = self.model.test_on_batch(patterns, targets, reset_metrics=False)[1]#['loss', 'rmse']
                 scores.extend([score,speed])
-                #score[speed] = self.model.test_on_batch(patterns, targets, reset_metrics=True)
         return scores
 
-    def prediction(self, batchStack):
+    def prediction(self, batchStack, number):
         delta = self.architecture['delta']
         n_pattern_steps = self.architecture['n_pattern_steps']
         n_target_steps = self.architecture['n_target_steps']
-        key = 'batch'+str(batch%len(batchStack))
-        n_series = int(batchStack[key].diff)-int(delta*n_pattern_steps)
+        key = 'batch'+str(number%len(batchStack))
+        n_series = int(batchStack[key].n_steps)-int(delta*n_pattern_steps)
         patterns = np.empty([n_series,n_pattern_steps])
         targets = np.empty([n_series,n_target_steps])
         if batchStack[key].category == 'test':
             for i in range(n_series):
                 pattern_indices = np.arange(i,i+(delta)*n_pattern_steps,delta)
                 target_indices = i+delta*n_pattern_steps
-                patterns[i,:] = self.batchStack[key].batch[self.architecture['sensor_key']][pattern_indices]
-                targets[i,:] = self.batchStack[key].batch[self.architecture['sensor_key']][target_indices]
+                patterns[i,:] = batchStack[key].data[self.sensor_to_predict][pattern_indices]
+                targets[i,:] = batchStack[key].data[self.sensor_to_predict][target_indices]
             prediction = self.model.predict(patterns, batch_size=10, verbose=1)
-            plot_prediction(self, prediction, batch, targets)
+            return(prediction, targets)
         else:
-            for i in range(n_series):
-                pattern_indices = np.arange(i,i+(delta)*n_pattern_steps,delta)
-                target_indices = i+delta*n_pattern_steps
-                patterns[i,:] = batchStack[key].batch[self.architecture['sensor_key']][pattern_indices]
-                targets[i,:] = batchStack[key].batch[self.architecture['sensor_key']][target_indices]
-            return self.model.predict(patterns, batch_size=10, verbose=0), targets            
-        
+            print('\n Not a test batch \n')
         return
 
     def get_H_score(self, mse_threshold):
@@ -185,11 +131,11 @@ class NeuralNet():
         delta = self.architecture['delta']
         n_pattern_steps = self.architecture['n_pattern_steps']
         n_target_steps = self.architecture['n_target_steps']
-        n_series = int(self.batchStack['batch1'].diff)-int(delta*n_pattern_steps)
+        n_series = n_series = int(batchStack[key].n_steps)-int(delta*n_pattern_steps)
         patterns = np.empty([n_series,n_pattern_steps])
         targets = np.empty([n_series,n_target_steps])
-        for i in range(len(self.batchStack)):
-            key = 'batch'+str(i%len(self.batchStack))
+        for i in range(len(batchStack)):
+            key = 'batch'+str(i%len(batchStack))
             batch = self.batchStack[key]
             if batch.category == 'validation':
                 pred, target = self.prediction(i)
@@ -228,11 +174,10 @@ class NeuralNet():
             i += 1
         self.D_score = right/(wrong+right)
         return self.D_score
-
+# General Utilities
 def data_sequence(self, batchStack, key):
     inputs = []#np.empty([n_sensors, n_pattern_steps])
     outputs = []#np.empty([n_sensors, n_target_steps])
-    self.sensor_to_predict = 0
     delta = self.architecture['delta']
     n_pattern_steps = self.architecture['n_pattern_steps']
     n_target_steps = self.architecture['n_target_steps']
@@ -266,6 +211,10 @@ def generator(self, task, batchStack):
             yield(patterns, targets)
         else:
             pass
+    pass
+
+def rmse(true, prediction):
+    return backend.sqrt(backend.mean(backend.square(prediction - true), axis=-1))
 
 ####################################################################################################
 def set_up_model1(architecture):
@@ -275,9 +224,15 @@ def set_up_model1(architecture):
     accel_input_third = Input(shape=(architecture['n_pattern_steps'], ), name='accel_input_third')
     speed_input = Input(shape=(1,), name='speed_input')
 
-    s_half = Dense(architecture['n_units'][0], activation = architecture['MLPactivation'],use_bias=True)(accel_input_half)
-    s_quarter = Dense(architecture['n_units'][0], activation = architecture['MLPactivation'],use_bias=True)(accel_input_quarter)
-    s_third = Dense(architecture['n_units'][0], activation = architecture['MLPactivation'],use_bias=True)(accel_input_third)
+    s_half = Dense(architecture['n_units'][0],
+                                activation = architecture['MLPactivation'],
+                                use_bias=architecture['bias'])(accel_input_half)
+    s_quarter = Dense(architecture['n_units'][0], 
+                                    activation = architecture['MLPactivation'],
+                                    use_bias=architecture['bias'])(accel_input_quarter)
+    s_third = Dense(architecture['n_units'][0], 
+                                    activation = architecture['MLPactivation'],
+                                    use_bias=architecture['bias'])(accel_input_third)
 
     accels = concatenate([s_half, s_quarter, s_third])
     x = Dense(architecture['n_units'][1])(accels)
@@ -288,10 +243,7 @@ def set_up_model1(architecture):
 
 
     model = Model(inputs = [accel_input_half, accel_input_quarter, accel_input_third, speed_input], 
-                  outputs = output)
-    model.compile(optimizer='adam', loss='mse', metrics=['mse','acc'])
-    #plot_model(model, to_file='model.png')
-    model.summary()             
+                  outputs = output)             
     return model
 ####################################################################################################
 def set_up_model2(architecture):
@@ -325,4 +277,14 @@ def set_up_model2(architecture):
             outputs = output)
     model.compile(optimizer='adam', loss='mse', metrics=['mse','acc'])
     model.summary()             
+    return model
+
+####################################################################################################
+def set_up_model3(architecture):
+    accel_input_half = Input(shape=(architecture['n_pattern_steps'], ), name='accel_input_half')
+    s_half = Dense(architecture['n_units'][0],
+                                activation = architecture['MLPactivation'],
+                                use_bias=architecture['bias'])(accel_input_half)
+    output = Dense(architecture['n_target_steps'], activation='tanh', name='acceleration_output')(s_half) 
+    model = Model(inputs = accel_input_half, outputs = output)
     return model

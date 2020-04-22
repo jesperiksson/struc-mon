@@ -4,8 +4,6 @@ import tensorflow as tf
 from tensorflow import keras
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
-#from datetime import datetime, date, time
-
 # Class files
 ''' Imported when needed
 from LSTM import * 
@@ -16,11 +14,6 @@ from LSTMbatch import *
 from util import *
 
 if __name__ == "__main__":
-
-
-    '''
-    Hyperparameters
-    '''
     # Model
     architecture = {
         'prediction' : 'end_of_series', # end_of_series or entire_series
@@ -29,6 +22,7 @@ if __name__ == "__main__":
         'n_layers' : 1,
         'n_units' : [30, 15],
         'target' : 'accelerations', # E or accelerations
+        'bias' : True,
 # Metadata
         'elements' : [10, 45, 68, 90, 112, 135, 170],
         'healthy' : [33, 43, 52 , 62, 71, 81, 90, 100],
@@ -36,11 +30,12 @@ if __name__ == "__main__":
         'speeds' : 20,
         'data_split' : [60, 20, 20], # sorting of data into training testing and validation
 # MLP-specific settings
-        'delta' : 5,
-        'n_pattern_steps' : 20,
+        'delta' : 4,
+        'n_pattern_steps' : 10,
         'n_target_steps' : 1,
-        'MLPactivation' : 'tanh'
+        'MLPactivation' : 'tanh',
 # LSTM-specific settings
+        'LSTMactivation' : 'tanh'
     }
     early_stopping = True
     # Data
@@ -51,13 +46,10 @@ if __name__ == "__main__":
 
 
     # Training
-    epochs = 20000
+    epochs = 20
 
     # Plotting
     do_plot_loss= True  
-
-    # Testing
-    mse_threshold = 0.000015  # minum error alowed to continued
 
 
     if architecture['model_type'] == 'MLP':
@@ -75,9 +67,9 @@ if __name__ == "__main__":
     }
     machine_stack = {}
     scoreStacks = {}
-    sensor_to_predict = [0,1,2]
+    sensor_to_predict = [0]
     for i in range(len(sensor_to_predict)):
-        name = 'MLPmodel_tjotaballong_'+str(sensor_to_predict[i])
+        name = 'MLPmodel3_3_bias_10_'+str(sensor_to_predict[i])
         try:
             f = open('models/'+name+'.json')
             machine_stack.update({
@@ -85,7 +77,7 @@ if __name__ == "__main__":
                      name,
                      early_stopping,
                      existing_model = True,
-                     sensor_to_predict = 0)
+                     sensor_to_predict = i)
             })
         except IOError:    
             machine_stack.update({
@@ -93,9 +85,9 @@ if __name__ == "__main__":
                      name,
                      early_stopping,
                      existing_model = False,
-                     sensor_to_predict = 0)
+                     sensor_to_predict = i)
             })
-            NeuralNet.train_measurements(machine_stack[name], batchStacks['H'])
+            NeuralNet.train_measurements(machine_stack[name], batchStacks['H'], epochs)
             NeuralNet.evaluation(machine_stack[name], batchStacks['H'])
             plot_loss(machine_stack[name], do_plot_loss)
             save_model(machine_stack[name].model, name)
@@ -106,6 +98,7 @@ if __name__ == "__main__":
         '5090' : NeuralNet.evaluation_batch(machine_stack[name], batchStacks['5090']),
         '7090' : NeuralNet.evaluation_batch(machine_stack[name], batchStacks['7090'])
         }})
-        plot_performance(scoreStacks[i])
-    plot_prediction(machine_stack[name], batchStack)
+    #plot_performance(scoreStacks)
+    prediction, hindsight = NeuralNet.prediction(machine_stack[name], batchStacks['7090'], 200)
+    plot_prediction(machine_stack[name],prediction, 200, hindsight)
 

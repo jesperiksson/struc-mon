@@ -19,9 +19,6 @@ from MLP import *
 ''' Utilities for various classes'''
 
 def fit_to_NN(data_split, path):
-    """
-    Function that fits raw data into a format that fits LSTM, i.e. array of arrays of acceleration signals in time-domain
-    """
     from Databatch_measurements import DataBatch
     halfpath = path + 'half/'
     quarterpath = path +'quarter/'
@@ -44,32 +41,27 @@ def fit_to_NN(data_split, path):
     speeds = np.empty([len(file_list)])
     for i in range(len(file_list)):
         speeds[i] = int(file_list[i][-18:-12])
-    normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))
+    normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))      
 
     n_files = len(half)
     batchStack = {}
-    scaler = MinMaxScaler(feature_range=(-1,1))
-    start = 0
-    to = -1
+    start = 2000
+    to = 6000
     diff = to-start
     for i in range(n_files):
         halfmat = h5py.File(halfpath + half[i],'r')
-        halfdata = preprocessing.normalize(halfmat.get('acc'))
-        #halfdata = scaler.fit_transform(np.array(preprocessing.normalize(halfmat.get('acc')))[:,start:to])
+        halfdata = encode_data(halfdata)
 
         quartermat = h5py.File(quarterpath + quarter[i],'r')
-        quarterdata = preprocessing.normalize(quartermat.get('acc'))
-        #quarterdata = scaler.fit_transform(np.array(preprocessing.normalize(quartermat.get('acc')))[:,start:to])
-        
+        quarterdata = encode_data(quarterdata)       
 
         thirdmat = h5py.File(thirdpath + third[i],'r')
-        thirddata = preprocessing.normalize(thirdmat.get('acc')) 
-        #thirddata = scaler.fit_transform(np.array(preprocessing.normalize(thirdmat.get('acc')))[:,start:to])
+        thirddata = encode_data(thirddata) 
 
         speed = int(file_list[i][-18:-12])/1000
         if i/n_files <= data_split[0]/100:
             batchStack.update({
-                'batch'+str(i) : DataBatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
+                'batch'+str(i) : DataBatch([halfdata[1,start:to],quarterdata[1,start:to],thirddata[1,start:to]],
                                  i,     
                                  speed,
                                  normalized_speeds[i],
@@ -77,7 +69,7 @@ def fit_to_NN(data_split, path):
             })
         elif i/n_files > data_split[0]/100 and i/n_files <= (data_split[0]+data_split[1])/100:
             batchStack.update({
-                'batch'+str(i) : DataBatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
+                'batch'+str(i) : DataBatch([halfdata[1,start:to],quarterdata[1,start:to],thirddata[1,start:to]],
                                  i,
                                  speed,
                                  normalized_speeds[i],
@@ -85,7 +77,7 @@ def fit_to_NN(data_split, path):
             })
         else:
             batchStack.update({
-                'batch'+str(i) : DataBatch([halfdata[1,:],quarterdata[1,:],thirddata[1,:]],
+                'batch'+str(i) : DataBatch([halfdata[1,start:to],quarterdata[1,start:to],thirddata[1,start:to]],
                                  i,
                                  speed,
                                  normalized_speeds[i],
@@ -186,7 +178,12 @@ def plot_prediction(self, prediction, batch_num, hindsight):
     plt.show()
     return
 
-    
+def encode_data(data):
+    data = preprocessing.normalize(data.get('acc'))
+    return data
+# TBD
+def decode_data(data):
+    return      
 
 def evaluate(self): # Evaluating the model on the test dataset
     if self.data_split[2] == 0:
@@ -214,7 +211,7 @@ def evaluate(self): # Evaluating the model on the test dataset
                                                verbose = 1)
     return evaluation
 
-def predict_batch(self, batch_num, sensor):
+def predict_batch(self, batch_num):
     pred_batch = self.batchStack['batch'+str(batch_num)].data[sensor]   
     if self.architecture['prediction'] == 'entire_series': 
         patterns = np.reshape(np.delete(pred_batch, self.pred_sensor, axis=0), [1, np.shape(pred_batch)[1], 2])
@@ -236,23 +233,26 @@ def plot_loss(self, show_plot = False):
     plt.plot(range(1,self.used_epochs+1), self.loss, 'bo', label='Training loss')
     plt.plot(range(1,self.used_epochs+1), self.val_loss, 'b', label='Validation loss')
     if show_plot == True:
-        plt.title = 'Training and validation loss'
-        plt.xlabel = 'Epochs'
-        plt.ylabel = self.loss
+        plt.title('Training and validation loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss - MSE')
         plt.legend()
         plt.show()
     else: 
         pass
 
-def plot_performance(scoreStack, title = 'placeholder'):
-    plt.figure()
-    plt.plot(scoreStack['H'][1:-1:2],scoreStack['H'][0:-2:2],'ro',label='Healthy data')
-    plt.plot(scoreStack['5070'][1:-1:2],scoreStack['5070'][0:-2:2],'b+',label='70% reduction at element 50')
-    plt.plot(scoreStack['5090'][1:-1:2],scoreStack['5090'][0:-2:2],'g1',label='90% reduction at element 50')
-    plt.plot(scoreStack['7090'][1:-1:2],scoreStack['7090'][0:-2:2],'kv',label='90% reduction at element 70')
-    plt.xlabel = 'Speed [km/h]'
-    plt.ylabel = 'Mean square error'
-    plt.title = 'Performance'
+def plot_performance(scoreStacks):
+    sensors = ['Half', 'Quarter', 'Third']
+    for i in range(len(scoreStacks)):
+        scoreStack = scoreStacks[i]
+        plt.subplot(len(scoreStacks),1,i+1) 
+        plt.plot(scoreStack['H'][1:-1:2],scoreStack['H'][0:-2:2],'b.',label='Healthy data')
+        plt.plot(scoreStack['5070'][1:-1:2],scoreStack['5070'][0:-2:2],'r+',label='70% reduction at element 50')
+        plt.plot(scoreStack['5090'][1:-1:2],scoreStack['5090'][0:-2:2],'g1',label='90% reduction at element 50')
+        plt.plot(scoreStack['7090'][1:-1:2],scoreStack['7090'][0:-2:2],'kv',label='90% reduction at element 70')
+        plt.xlabel('Speed [km/h]')
+        plt.ylabel('Root Mean Square Error')
+        plt.title(sensors[i])
     plt.legend()
     plt.show()
         
