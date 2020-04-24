@@ -41,7 +41,7 @@ class NeuralNet():
         self.existing_model = existing_model
         n_sensors = len(architecture['sensors'])         
         if self.existing_model == False:
-            model = set_up_model3(architecture)
+            model = set_up_model2(architecture)
 
         elif self.existing_model == True:
             model_path = 'models/'+self.name+'.json'
@@ -181,7 +181,7 @@ def data_sequence(self, batchStack, key):
     delta = self.architecture['delta']
     n_pattern_steps = self.architecture['n_pattern_steps']
     n_target_steps = self.architecture['n_target_steps']
-    n_sensors = 3
+    n_sensors = len(self.architecture['sensors'])
     for j in range(n_sensors):
         n_series = int(batchStack[key].n_steps)-int(delta*n_pattern_steps)
         patterns = np.empty([n_series,n_pattern_steps])
@@ -193,11 +193,18 @@ def data_sequence(self, batchStack, key):
             targets[k,:] = batchStack[key].data[j][target_indices]
         inputs.append(patterns)
         outputs.append(targets)
-    patterns = {'accel_input_half' : inputs[0],
-                'accel_input_quarter' : inputs[1],
-                'accel_input_third' : inputs[2],
-                'speed_input' : np.repeat(np.array([batchStack[key].normalized_speed,]),n_series,axis=0)}
-                
+    if n_sensors == 3:
+        patterns = {'accel_input_half' : inputs[0],
+                    'accel_input_quarter' : inputs[1],
+                    'accel_input_third' : inputs[2],
+                    'speed_input' : np.repeat(np.array([batchStack[key].normalized_speed,]),n_series,axis=0)}
+    elif n_sensors == 5:
+        patterns = { 'accel_input_10'  : inputs[0],
+                     'accel_input_45'  : inputs[1],
+                     'accel_input_90'  : inputs[2],
+                     'accel_input_135' : inputs[3],
+                     'accel_input_170' : inputs[4],
+                     'speed_input' : np.repeat(np.array([batchStack[key].normalized_speed,]),n_series,axis=0)}
     targets = {'acceleration_output' : outputs[self.sensor_to_predict]}
     return patterns, targets
 
@@ -253,6 +260,7 @@ def set_up_model2(architecture):
     accel_input_90 = Input(shape=(architecture['n_pattern_steps'], ), name='accel_input_90')
     accel_input_135 = Input(shape=(architecture['n_pattern_steps'], ), name='accel_input_135')
     accel_input_170 = Input(shape=(architecture['n_pattern_steps'], ), name='accel_input_170')
+    speed_input = Input(shape=(1,), name='speed_input')
 
     s10 = Dense(architecture['n_units'][0], activation = architecture['MLPactivation'],use_bias=True)(accel_input_10)
     s45 = Dense(architecture['n_units'][0], activation = architecture['MLPactivation'],use_bias=True)(accel_input_45)
@@ -261,7 +269,8 @@ def set_up_model2(architecture):
     s170 = Dense(architecture['n_units'][0], activation = architecture['MLPactivation'],use_bias=True)(accel_input_170)
 
     accels = concatenate([s10, s45, s90, s135, s170])
-    speed_input = Input(shape=(1,1), name='speed_input')
+    x = Dense(architecture['n_units'][1])(accels)
+    
     x = concatenate([accels, speed_input])
     x = Dense(architecture['n_units'][1])(x)
 

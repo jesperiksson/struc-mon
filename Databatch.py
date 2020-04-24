@@ -2,15 +2,15 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 class DataBatch():
-    def __init__(self, data, batch_num, speed, element, category = 'train', damage_state = 1):
+    def __init__(self, data, batch_num, speed, normalized_speed, element, category = 'train', damage_state = 1):
         self.data = np.array(data)
-        print(np.shape(self.data))
         self.category = category
         self.n_steps = np.shape(self.data)[1]
         self.speed = speed
+        self.normalized_speed = normalized_speed
         self.element = element/180
-        self.damage_state = damage_state/100
-        assert self.element <= 1, self.damage_state <= 1 
+        self.damage_state = damage_state
+        assert self.element <= 1
         self.batch = {'1/18' : np.array(data[0]),
                       '1/4'  : np.array(data[1]),
                       '1/2'  : np.array(data[2]),

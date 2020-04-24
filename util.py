@@ -1,6 +1,7 @@
 # Modules
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 import tensorflow as tf
 import keras
 from keras.models import model_from_json, Sequential
@@ -50,114 +51,113 @@ def fit_to_NN(data_split, path):
     diff = to-start
     for i in range(n_files):
         halfmat = h5py.File(halfpath + half[i],'r')
-        halfdata = encode_data(halfdata)
+        halfdata = encode_data(halfmat)
 
         quartermat = h5py.File(quarterpath + quarter[i],'r')
-        quarterdata = encode_data(quarterdata)       
+        quarterdata = encode_data(quartermat)       
 
         thirdmat = h5py.File(thirdpath + third[i],'r')
-        thirddata = encode_data(thirddata) 
+        thirddata = encode_data(thirdmat) 
 
         speed = int(file_list[i][-18:-12])/1000
         if i/n_files <= data_split[0]/100:
-            batchStack.update({
-                'batch'+str(i) : DataBatch([halfdata[1,start:to],quarterdata[1,start:to],thirddata[1,start:to]],
-                                 i,     
-                                 speed,
-                                 normalized_speeds[i],
-                                 category = 'train')
-            })
+            stack_update3(batchStack, i, start, to, speed, normalized_speeds[i], 'train')
         elif i/n_files > data_split[0]/100 and i/n_files <= (data_split[0]+data_split[1])/100:
-            batchStack.update({
-                'batch'+str(i) : DataBatch([halfdata[1,start:to],quarterdata[1,start:to],thirddata[1,start:to]],
-                                 i,
-                                 speed,
-                                 normalized_speeds[i],
-                                 category = 'validation')
-            })
+            stack_update3(batchStack, i, start, to, speed, normalized_speeds[i], 'validation')
         else:
-            batchStack.update({
-                'batch'+str(i) : DataBatch([halfdata[1,start:to],quarterdata[1,start:to],thirddata[1,start:to]],
-                                 i,
-                                 speed,
-                                 normalized_speeds[i],
-                                 category = 'test')
-            })
+            stack_update3(batchStack, i, start, to, speed, normalized_speeds[i], 'test')
     return batchStack
 
+def stack_update3(batchStack, i, start, to, speed, normalized_speed, category):
+    batchStack.update({
+        'batch'+str(i) : DataBatch([halfdata[1,start:to],quarterdata[1,start:to],thirddata[1,start:to]],
+                         i,
+                         speed,
+                         normalized_speeds,
+                         category)
+    })
 
-def fit_ad_hoc_NN(machine, elements, healthy, sensors, path = None):
-    data = np.empty([])
-    path1 = './newly_generated_measurements'
+
+def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
+    from Databatch import DataBatch
+    s10path = path + 's10/'
+    s45path = path + 's45/'
+    s90path = path + 's90/'
+    s135path = path + 's135/'
+    s170path = path + 's170/'
+
+    seed = 1337
+    s10 = os.listdir(s10path)
+    s10.sort()
+    random.Random(seed).shuffle(s10)
+
+    s45 = os.listdir(s45path)
+    s45.sort()
+    random.Random(seed).shuffle(s45)
+
+    s90 = os.listdir(s90path)
+    s90.sort()
+    random.Random(seed).shuffle(s90)
+
+    s135 = os.listdir(s135path)
+    s135.sort()
+    random.Random(seed).shuffle(s135)
+
+    s170 = os.listdir(s170path)
+    s170.sort()
+    random.Random(seed).shuffle(s170)
+
+    file_list = s90
+    speeds = np.empty([len(file_list)])
+    for i in range(len(file_list)):
+        speeds[i] = int(file_list[i][0:5])
+    normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))
+
+    n_files = len(s90)
     batchStack = {}
-    if path == None:
-        for i in range(len(elements)):
-            path2 = '/e'+str(elements[i])
-            for j in range(len(healthy)):
-                path3 = '/'+str(healthy[j])+'%'
-                path = path1+path2+path3+'/'
-                speeds = os.listdir(path +'s10')
-                speeds.sort()
-                element = elements[i]
-                s10path = path+'s10/'
-                s45path = path+'s45/'
-                s90path = path+'s90/'
-                s135path = path+'s135/'
-                s170path = path+'s170/'
-                for l in range(len(speeds)):
-                    speed = 0
-                    if i%int(machine.architecture['data_split'][1]/100*len(speeds)) == 0:
-                        category = 'validation'
-                    else:
-                        category = 'train'
-                    s10 = preprocessing.normalize(h5py.File(s10path+speeds[l],'r').get('acc'))
-                    s45 = preprocessing.normalize(h5py.File(s45path+speeds[l],'r').get('acc'))
-                    s90 = preprocessing.normalize(h5py.File(s90path+speeds[l],'r').get('acc'))
-                    s135 = preprocessing.normalize(h5py.File(s135path+speeds[l],'r').get('acc'))
-                    s170 = preprocessing.normalize(h5py.File(s170path+speeds[l],'r').get('acc'))
-                    batchStack.update({'batch'+str(i) : DataBatch([ np.array(s10[1,:]),
-                                                                    np.array(s45[1,:]),
-                                                                    np.array(s90[1,:]),
-                                                                    np.array(s135[1,:]),
-                                                                    np.array(s170[1,:])],
-                                        l,
-                                        speed,
-                                        element,
-                                        category,
-                                        damage_state = healthy[j])
-                    })
-                        
-                
-                NeuralNet.train_ad_hoc(machine, batchStack, epochs=200)
-    else: # when a path is provided 
-        speed = os.listdir(path +'s10')
-        speed.sort()
-        s10path = path+'s10/'
-        s45path = path+'s45/'
-        s90path = path+'s90/'
-        s135path = path+'s135/'
-        s170path = path+'s170/'
-        for i in range(len(speed)):
-            if i%int(machine.architecture['data_split'][1]/100*len(speed)) == 0:
-                category = 'validation'
-            else:
-                category = 'train'
-            s10mat = preprocessing.normalize(h5py.File(s10path+speed[i],'r').get('acc'))
-            s45mat = preprocessing.normalize(h5py.File(s45path+speed[i],'r').get('acc'))
-            s90mat = preprocessing.normalize(h5py.File(s90path+speed[i],'r').get('acc'))
-            s135mat = preprocessing.normalize(h5py.File(s135path+speed[i],'r').get('acc'))
-            s170mat = preprocessing.normalize(h5py.File(s170path+speed[i],'r').get('acc'))
-            batchStack.update({
-            'batch'+str(i) :    Databatch([s10[1,:], s45[1,:], s90[1,:], s135[1,:], s170[1,:]],
-                                l,
-                                speed,
-                                element,
-                                category,
-                                damage_state = healthy[j])
-            })
-                
+    start = 2000
+    to = 6000
+    diff = to-start
+    for i in range(n_files):
+        data = [None]*5
+
+        s10mat = h5py.File(s10path + s10[i],'r')
+        data[0] = encode_data(s10mat)
+
+        s45mat = h5py.File(s45path + s45[i],'r')
+        data[1] = encode_data(s45mat)
+
+        s90mat = h5py.File(s90path + s90[i],'r')
+        data[2] = encode_data(s90mat)
+
+        s135mat = h5py.File(s135path + s135[i],'r')
+        data[3] = encode_data(s135mat)
+
+        s170mat = h5py.File(s170path + s170[i],'r')
+        data[4] = encode_data(s170mat)
         
-        NeuralNet.train_ad_hoc(machine, batchStack, epochs=200)
+        speed = int(file_list[i][0:5])/1000
+
+        if i/n_files <= data_split[0]/100:
+            category = 'train'
+        elif i/n_files > data_split[0]/100 and i/n_files <= (data_split[0]+data_split[1])/100:
+            category = 'validation'
+        else:
+            category = 'test'
+        batchStack.update({
+            'batch'+str(i) : DataBatch([data[0][1,start:to],
+                                        data[1][1,start:to],
+                                        data[2][1,start:to],
+                                        data[3][1,start:to],
+                                        data[4][1,start:to]],
+                             i,
+                             speed,
+                             normalized_speeds[i],
+                             damaged_element,
+                             category,
+                             healthy_percentage)
+                            })
+    return batchStack
 
 def save_model(model,name):
     '''
@@ -241,7 +241,7 @@ def plot_loss(self, show_plot = False):
     else: 
         pass
 
-def plot_performance(scoreStacks):
+def plot_performance3(scoreStacks):
     sensors = ['Half', 'Quarter', 'Third']
     for i in range(len(scoreStacks)):
         scoreStack = scoreStacks[i]
@@ -253,6 +253,34 @@ def plot_performance(scoreStacks):
         plt.xlabel('Speed [km/h]')
         plt.ylabel('Root Mean Square Error')
         plt.title(sensors[i])
+    plt.legend()
+    plt.show()
+
+def plot_performance5(scoreStacks):
+    sensors = ['1/18', '1/4', '1/2', '3/4', '17/18']
+    score_keys = list(scoreStacks)
+    cmap = plt.cm.rainbow
+    norm = colors.Normalize(vmin=33,vmax=100)
+    for i in range(len(score_keys)): # Iterates over sensors
+        
+        scoreStack = scoreStacks[score_keys[i]]
+        plt.subplot(len(scoreStacks),1,i+1)
+        percentage_keys = list(scoreStack) 
+        for j in range(len(percentage_keys)): # Iterates over percentages
+            plt.plot(scoreStack[percentage_keys[j]][1:-1:2], 
+                     scoreStack[percentage_keys[j]][0:-2:2], 
+                     color=cmap(norm(percentage_keys[j])), 
+                     marker='o',
+                     linestyle='None')
+#        plt.plot(scoreStack['H'][1:-1:2],scoreStack['H'][0:-2:2],'b.',label='Healthy data')
+#        plt.plot(scoreStack['5070'][1:-1:2],scoreStack['5070'][0:-2:2],'r+',label='70% reduction at element 50')
+#        plt.plot(scoreStack['5090'][1:-1:2],scoreStack['5090'][0:-2:2],'g1',label='90% reduction at element 50')
+#        plt.plot(scoreStack['7090'][1:-1:2],scoreStack['7090'][0:-2:2],'kv',label='90% reduction at element 70')
+        plt.xlabel('Speed [km/h]')
+        plt.ylabel('Root Mean Square Error')
+        plt.title(sensors[score_keys[i]])
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        plt.colorbar(sm)
     plt.legend()
     plt.show()
         
