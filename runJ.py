@@ -42,7 +42,7 @@ if __name__ == "__main__":
     damaged_element = 90#[10, 45, 68, 90, 112, 135, 170] Finns data på 45, 90 och 135
        
     # Training
-    epochs = 20
+    epochs = 50
 
     # Plotting
     do_plot_loss= True  
@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     healthy_batch_stack = {
     '100%' : fit_to_NN_ad_hoc(architecture['data_split'],
-                              'our_measurements/e90/100%/',
+                              'our_measurements/healthy/100%/',
                               damaged_element,
                               100)}
     eval_batch_stack = {
