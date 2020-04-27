@@ -19,65 +19,6 @@ from MLP import *
 
 ''' Utilities for various classes'''
 
-def fit_to_NN(data_split, path):
-    from Databatch_measurements import DataBatch
-    halfpath = path + 'half/'
-    quarterpath = path +'quarter/'
-    thirdpath = path + 'third/'
-
-    seed = 1337
-    half = os.listdir(halfpath)
-    half.sort()
-    random.Random(seed).shuffle(half)
-
-    quarter = os.listdir(quarterpath)
-    quarter.sort()
-    random.Random(seed).shuffle(quarter)
-
-    third = os.listdir(thirdpath)
-    third.sort()
-    random.Random(seed).shuffle(third)
-
-    file_list = half
-    speeds = np.empty([len(file_list)])
-    for i in range(len(file_list)):
-        speeds[i] = int(file_list[i][-18:-12])
-    normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))      
-
-    n_files = len(half)
-    batchStack = {}
-    start = 2000
-    to = 6000
-    diff = to-start
-    for i in range(n_files):
-        halfmat = h5py.File(halfpath + half[i],'r')
-        halfdata = encode_data(halfmat)
-
-        quartermat = h5py.File(quarterpath + quarter[i],'r')
-        quarterdata = encode_data(quartermat)       
-
-        thirdmat = h5py.File(thirdpath + third[i],'r')
-        thirddata = encode_data(thirdmat) 
-
-        speed = int(file_list[i][-18:-12])/1000
-        if i/n_files <= data_split[0]/100:
-            stack_update3(batchStack, i, start, to, speed, normalized_speeds[i], 'train')
-        elif i/n_files > data_split[0]/100 and i/n_files <= (data_split[0]+data_split[1])/100:
-            stack_update3(batchStack, i, start, to, speed, normalized_speeds[i], 'validation')
-        else:
-            stack_update3(batchStack, i, start, to, speed, normalized_speeds[i], 'test')
-    return batchStack
-
-def stack_update3(batchStack, i, start, to, speed, normalized_speed, category):
-    batchStack.update({
-        'batch'+str(i) : DataBatch([halfdata[1,start:to],quarterdata[1,start:to],thirddata[1,start:to]],
-                         i,
-                         speed,
-                         normalized_speeds,
-                         category)
-    })
-
-
 def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
     from Databatch import DataBatch
     s10path = path + 's10/'
@@ -86,7 +27,7 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
     s135path = path + 's135/'
     s170path = path + 's170/'
 
-    seed = 1337
+    seed = 1
     s10 = os.listdir(s10path)
     s10.sort()
     random.Random(seed).shuffle(s10)
@@ -110,17 +51,20 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
     file_list = s90
     speeds = np.empty([len(file_list)])
     for i in range(len(file_list)):
-        speeds[i] = int(file_list[i][0:5])
+        if len(file_list[i]) == 9:
+            speeds[i] = int(file_list[i][0:5])
+        elif len(file_list[i]) == 10:
+            speeds[i] = int(file_list[i][0:6])
     normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))
 
     n_files = len(s90)
     batchStack = {}
-    start = 2000
-    to = 6000
+    start = 0
+    to = 10000
     diff = to-start
     for i in range(n_files):
         data = [None]*5
-
+        
         s10mat = h5py.File(s10path + s10[i],'r')
         data[0] = encode_data(s10mat)
 
@@ -272,10 +216,6 @@ def plot_performance5(scoreStacks):
                      color=cmap(norm(percentage_keys[j])), 
                      marker='o',
                      linestyle='None')
-#        plt.plot(scoreStack['H'][1:-1:2],scoreStack['H'][0:-2:2],'b.',label='Healthy data')
-#        plt.plot(scoreStack['5070'][1:-1:2],scoreStack['5070'][0:-2:2],'r+',label='70% reduction at element 50')
-#        plt.plot(scoreStack['5090'][1:-1:2],scoreStack['5090'][0:-2:2],'g1',label='90% reduction at element 50')
-#        plt.plot(scoreStack['7090'][1:-1:2],scoreStack['7090'][0:-2:2],'kv',label='90% reduction at element 70')
         plt.xlabel('Speed [km/h]')
         plt.ylabel('Root Mean Square Error')
         plt.title(sensors[score_keys[i]])
