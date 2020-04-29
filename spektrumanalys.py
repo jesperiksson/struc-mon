@@ -3,12 +3,12 @@ import scipy.io as sio
 from scipy import fftpack
 import numpy as np
 import array as ar
-
+import h5py
 import matplotlib.pyplot as plt
 
-mat = sio.loadmat('b4Signal.mat')
+mat = h5py.File('our_measurements/healthy/100%/s90/75643.mat','r')
 
-acc= mat['a']
+acc= mat['acc']
 acc=acc[1,:]
 
 
@@ -20,6 +20,7 @@ t_limit=int(t_limit)
 
 # klipp acc1
 acc1=acc[t_limit:]
+
 
 
 # tidsvektor
