@@ -4,7 +4,7 @@ from Databatch import *
 # Modules
 import tensorflow as tf
 import keras
-import os
+#import os
 from keras.models import Sequential, Model, model_from_json
 from keras.layers import Input, Dense, LSTM, concatenate, Activation, Flatten 
 from keras import metrics, callbacks, regularizers
@@ -25,13 +25,11 @@ class NeuralNet():
         self.architecture = architecture
         self.ad_hoc_batchStack = None
         self.name = name
-        self.model_type = self.architecture['model_type']
-        self.activation = self.architecture['MLPactivation']
         self.sensor_to_predict = sensor_to_predict
         if early_stopping == True:
-            self.early_stopping = [keras.callbacks.EarlyStopping(monitor='val_loss',
+            self.early_stopping = [keras.callbacks.EarlyStopping(monitor='loss',
                                                  min_delta=0, 
-                                                 patience=15,
+                                                 patience=1,
                                                  verbose=1,
                                                  mode='auto',
                                                  restore_best_weights=True)]
@@ -41,7 +39,7 @@ class NeuralNet():
         self.existing_model = existing_model
         self.n_sensors = len(architecture['sensors'])         
         if self.existing_model == False:
-            model = set_up_model1(architecture)
+            model = set_up_model4(architecture)
 
         elif self.existing_model == True:
             model_path = 'models/'+self.name+'.json'
@@ -61,7 +59,9 @@ class NeuralNet():
         self.model = model
         self.score = None
 
-    def train_measurements(self, batchStack, epochs = 200):
+    def train_measurements(self, batchStack, epochs = 20):
+        #tf.config.experimental.set_visible_devices([], 'GPU')
+        #tf.config.experimental.set_memory_growth
         '''
         Reshapes the data to the form 
         0 [x_00 = a_1, x_01 = a_1+delta, ..., x_0(n_pattern_steps) = a_(delta*n_pattern_steps)]
@@ -69,163 +69,175 @@ class NeuralNet():
         .
         .
         n_series  [x_n_series0 = a_n_series...]
-        '''    
-        self.history = self.model.fit_generator( generator(self,'train',batchStack), 
-                                                 steps_per_epoch=1000, 
-                                                 epochs=epochs, 
-                                                 verbose=1,
-                                                 callbacks=self.early_stopping, 
-                                                 validation_data = generator(self,'validation', batchStack),
-                                                 validation_steps=5)
+        '''
+        for i in range(len(batchStack)):
+            key = 'batch'+str(i%len(batchStack))
+            steps = int(np.floor(batchStack[key].n_steps/self.architecture['n_pattern_steps']/epochs))
+            if batchStack[key].category == 'train':
+                '''
+                Man väljer en train batch och tränar modellen på den. steps_per_epochs bör optimeras 
+                så att man får ut max antal steg per ber batch, vilket beror på dess längd och batch
+                size. 
+                '''
+                self.history = self.model.fit_generator(
+                    generator_peak(
+                        self,
+                        'train',
+                        batchStack[key]), 
+                    steps_per_epoch=steps, 
+                    epochs=epochs, 
+                    verbose=1,
+                    callbacks=self.early_stopping)
+
+            elif batchStack[key].category == 'validation':
+                self.history = self.model.evaluate_generator(
+                    generator_peak(
+                        self,
+                        'validation',
+                        batchStack[key]),
+                    steps = steps)
+                    
+        print(self.history)
         self.model.summary()
         self.loss = self.history.history['loss']
-        self.val_loss = self.history.history['val_loss']
-        self.used_epochs = len(self.val_loss)
+        #self.val_loss = self.history.history['val_loss']
+        self.used_epochs = len(self.loss)   
         return
 
-
-  
-
-  
     def evaluation(self, batchStack):
-        self.score = self.model.evaluate_generator(generator(self, 'test', batchStack),
-                                                   steps = self.architecture['data_split'][2]/100*len(batchStack),
-                                                   verbose = 1)
+        for i in range(len(batchStack)):
+            key = 'batch'+str(i%len(batchStack))
+            steps = int(np.floor(batchStack[key].n_steps/self.architecture['n_pattern_steps']))
+            if batchStack[key].category == 'train':
+                self.score = self.model.evaluate_generator(
+                    generator(
+                        self, 
+                        'test', 
+                        batchStack[key]),
+                    steps = steps,
+                    verbose = 1)
         print('Model score: ', self.model.metrics_names, self.score)
         return
 
     def evaluation_batch(self, batchStack):
-        scores = []
+        scores = np.empty([len(batchStack), 3]) # [score, speed, batch]
         for i in range(len(batchStack)):
             key = 'batch'+str(i%len(batchStack))
+            steps = int(np.floor(batchStack[key].n_steps/self.architecture['n_pattern_steps']))
             if batchStack[key].category == 'test':
-                patterns, targets = data_sequence(self, batchStack, key)
+                score = self.model.evaluate_generator(generator(self, 'test', batchStack[key]),
+                                           steps = steps, # Ska vara samma som steps_per_epoch i fit_generator
+                                           verbose = 1)
                 speed = batchStack[key].speed
-                score = self.model.test_on_batch(patterns, targets, reset_metrics=False)[1]#['loss', 'rmse']
-                scores.extend([score,speed])
-                #score[speed] = self.model.test_on_batch(patterns, targets, reset_metrics=True)
+                scores[i,:] = [score[1], speed, int(i)]
+
         return scores
 
-    def prediction(self, batchStack):
+    def prediction(self, batchStack, number):
         delta = self.architecture['delta']
         n_pattern_steps = self.architecture['n_pattern_steps']
         n_target_steps = self.architecture['n_target_steps']
-        key = 'batch'+str(batch%len(batchStack))
-        n_series = int(batchStack[key].diff)-int(delta*n_pattern_steps)
+        key = 'batch'+str(number%len(batchStack))
+        n_series = int(batchStack[key].n_steps)-int(delta*n_pattern_steps)
         patterns = np.empty([n_series,n_pattern_steps])
         targets = np.empty([n_series,n_target_steps])
         if batchStack[key].category == 'test':
             for i in range(n_series):
                 pattern_indices = np.arange(i,i+(delta)*n_pattern_steps,delta)
                 target_indices = i+delta*n_pattern_steps
-                patterns[i,:] = self.batchStack[key].batch[self.architecture['sensor_key']][pattern_indices]
-                targets[i,:] = self.batchStack[key].batch[self.architecture['sensor_key']][target_indices]
+                patterns[i,:] = batchStack[key].data[self.sensor_to_predict][pattern_indices]
+                targets[i,:] = batchStack[key].data[self.sensor_to_predict][target_indices]
             prediction = self.model.predict(patterns, batch_size=10, verbose=1)
-            plot_prediction(self, prediction, batch, targets)
+            return(prediction, targets)
         else:
-            for i in range(n_series):
-                pattern_indices = np.arange(i,i+(delta)*n_pattern_steps,delta)
-                target_indices = i+delta*n_pattern_steps
-                patterns[i,:] = batchStack[key].batch[self.architecture['sensor_key']][pattern_indices]
-                targets[i,:] = batchStack[key].batch[self.architecture['sensor_key']][target_indices]
-            return self.model.predict(patterns, batch_size=10, verbose=0), targets            
-        
+            print('\n Not a test batch \n')
         return
 
-    def get_H_score(self, mse_threshold):
-        right = 0
-        wrong = 0
-        delta = self.architecture['delta']
-        n_pattern_steps = self.architecture['n_pattern_steps']
-        n_target_steps = self.architecture['n_target_steps']
-        n_series = int(self.batchStack['batch1'].diff)-int(delta*n_pattern_steps)
-        patterns = np.empty([n_series,n_pattern_steps])
-        targets = np.empty([n_series,n_target_steps])
-        for i in range(len(self.batchStack)):
-            key = 'batch'+str(i%len(self.batchStack))
-            batch = self.batchStack[key]
-            if batch.category == 'validation':
-                pred, target = self.prediction(i)
-                mse = mean_squared_error(pred, target)
-                if mse > mse_threshold:
-                    wrong += 1
-                else:
-                    right +=1
-            else:
-                pass
-            i += 1
-        self.H_score = right/(wrong+right)
-        return self.H_score
+    def modify_model(self):
+        self.used_epochs = len(self.loss)  
     
-    def get_D_score(self, mse_threshold, batchStack):
-        right = 0
-        wrong = 0
-        delta = self.architecture['delta']
-        n_pattern_steps = self.architecture['n_pattern_steps']
-        n_target_steps = self.architecture['n_target_steps']
-        n_series = int(self.batchStack['batch1'].diff)-int(delta*n_pattern_steps)
-        patterns = np.empty([n_series,n_pattern_steps])
-        targets = np.empty([n_series,n_target_steps])
-        for i in range(len(self.batchStack)):
-            key = 'batch'+str(i%len(batchStack))
-            batch = batchStack[key]
-            if batch.category == 'validation':
-                pred, target = self.prediction(i, True, batchStack)
-                mse = mean_squared_error(pred, target)
-                if mse > mse_threshold:
-                    right += 1
-                else:
-                    wrong +=1
-            else:
-                pass
-            i += 1
-        self.D_score = right/(wrong+right)
-        return self.D_score
 
-def data_sequence(self, batchStack, key, k):
-    inputs = []#np.empty([n_sensors, n_pattern_steps])
-    outputs = []#np.empty([n_sensors, n_target_steps])
+def data_sequence(self, batchStack, key):
+    inputs = []
+    outputs = []
     delta = self.architecture['delta']
     n_pattern_steps = self.architecture['n_pattern_steps']
     n_target_steps = self.architecture['n_target_steps']
-    n_sensors = 3
+    n_sensors = len(self.architecture['sensors'])
     n_series = int(batchStack[key].n_steps)-int(delta*n_pattern_steps)
-    patterns = np.empty([n_series * n_pattern_steps * n_sensors])
-    targets = np.empty([n_series * n_target_steps * n_sensors])
-    for i in range(n_series):
-        pattern_indices = np.arange(i,i+(delta)*n_pattern_steps,delta)
-        target_indices = i+delta*n_pattern_steps
-        for j in range(n_sensors):
-            signals = batchStack[key].data[i][]
-                
-
-    
-        patterns[k,:] = batchStack[key].data[j][pattern_indices]
-        targets[k,:] = batchStack[key].data[j][target_indices]
+    for j in range(n_sensors):        
+        patterns = np.empty([n_series,n_pattern_steps])
+        targets = np.empty([n_series,n_target_steps])
+        for k in range(n_series):                
+            pattern_indices = np.arange(k,k+(delta)*n_pattern_steps,delta)
+            target_indices = k+delta*n_pattern_steps
+            patterns[k,:] = batchStack[key].data[j][pattern_indices]
+            targets[k,:] = batchStack[key].data[j][target_indices]
         inputs.append(patterns)
         outputs.append(targets)
-    #[samples, timesteps, features]
-    inputs = np.reshape(patterns, (n_series, n_target_steps, n_sensors))
-    patterns = {'accel_input_half' : inputs,
-                'speed_input' : np.repeat(np.array([batchStack[key].normalized_speed,]),1,axis=0)}
-                
-    targets = {'acceleration_output' : outputs[self.sensor_to_predict]}
+    patterns = {'speed_input' : np.repeat(np.array([batchStack[key].normalized_speed,]),n_series,axis=0)}
+    for i in range(n_sensors):
+        patterns.update(
+        {'accel_input_'+str(self.architecture['sensors'][i]) : np.reshape(inputs[i],[1, n_series,n_pattern_steps])}
+                        )
+    targets = {'acceleration_output' : outputs[0]}
+    print(np.shape(patterns['accel_input_90']), np.shape(targets['acceleration_output']))
     return patterns, targets
 
-def generator(self, task, batchStack):    
-    i = 0
+def generator_accel(self, task, batch):
+    '''
+    Generator for when to use entire acceleration series
+    '''    
+    delta = self.architecture['delta']
+    n_pattern_steps = self.architecture['n_pattern_steps']
+    n_target_steps = self.architecture['n_target_steps']
+    n_sensors = len(self.architecture['sensors'])
+    n_series = int(batch.n_steps)-int(delta*n_pattern_steps)
     while True:
-        key = 'batch'+str(i%len(batchStack))
-        i+=1
-        if batchStack[key].category == task:
-            j = 0
-            while j < int(batchStack[key].n_steps)-int(self.architecture['delta']*self.architecture['n_pattern_steps']):   
-                patterns, targets = data_sequence(self, batchStack, key, j)
+        for j in range(n_sensors):        
+            pattern = np.empty([n_series,n_pattern_steps])
+            target = np.empty([n_series,n_target_steps])
+            for k in range(n_series):                
+                pattern_indices = np.arange(k,k+(delta)*n_pattern_steps,delta)
+                target_indices = k+delta*n_pattern_steps
+                pattern[k,:] = batch.data[j][pattern_indices]
+                target[k,:] = batch.data[j][target_indices]
+                patterns = {'speed_input' :
+                            np.repeat(np.array([batch.normalized_speed,]),n_series,axis=0),        
+                            'accel_input_'+str(self.architecture['sensors'][j]) : 
+                            np.reshape(pattern,[n_series,n_pattern_steps,1])}
+                targets = {'acceleration_output' : 
+                            np.reshape(target,[n_series, n_target_steps])}
                 yield(patterns, targets)
-                j += 1
-        else:
-            pass
-    pass
+
+def generator_peak(self, task, batch):
+    '''
+    Generator for when to use Peak accelerations and locations
+    '''
+    delta = self.architecture['delta']
+    n_pattern_steps = self.architecture['n_pattern_steps']
+    n_target_steps = self.architecture['n_target_steps']
+    n_sensors = len(self.architecture['sensors'])
+    n_series = int(batch.n_steps)-int(delta*n_pattern_steps)
+    while True:
+        for j in range(n_sensors):        
+            peak_pattern = np.empty([n_series,n_pattern_steps])
+            location_pattern = np.empty([n_series,n_pattern_steps])
+            peak_target = np.empty([n_series,n_target_steps])
+            for k in range(n_series):                
+                pattern_indices = np.arange(k,k+(delta)*n_pattern_steps,delta)
+                target_indices = k+delta*n_pattern_steps
+                peak_pattern[k,:] = batch.peaks[j][pattern_indices]
+                location_pattern[k,:] = batch.locations[j][pattern_indices]
+                peak_targets[k,:] = batch.peaks[j][target_indices]
+                patterns = {
+                    'peak_input' : np.reshape(peak_pattern[2],[n_series,n_pattern_steps,1]),
+                    'location_input' : np.reshape(location_pattern,[n_series,n_pattern_steps,1]),
+                    'speed_input' : np.repeat(np.array([batch.normalized_speed,]),n_series,axis=0)}
+                targets = {
+                    'peak_output' : np.reshape(peak_target,[n_series, n_target_steps])}
+                print(patterns)
+                yield(patterns, targets)
 
 def rmse(true, prediction):
     return backend.sqrt(backend.mean(backend.square(prediction - true), axis=-1))
@@ -285,4 +297,64 @@ def set_up_model2(architecture):
             outputs = output)
     model.compile(optimizer='adam', loss='mse', metrics=['mse','acc'])
     model.summary()             
+    return model
+#######################################################################################################
+def set_up_model3(architecture):
+    accel_input = Input(shape=(architecture['n_pattern_steps'], 10),
+                    batch_shape = (None, architecture['n_pattern_steps'], 1),
+                    name='accel_input_'+str(architecture['sensors'][0]))
+    hidden_1 = LSTM(architecture['n_units'][0],
+                    #input_shape = (architecture['n_pattern_steps'], 1),
+                    activation = architecture['MLPactivation'],
+                    recurrent_activation = 'hard_sigmoid',
+                    use_bias=architecture['bias'],
+                    stateful = False)(accel_input)
+    output = Dense(architecture['n_target_steps'], activation='tanh', name='acceleration_output')(hidden_1)
+    model = Model(inputs = accel_input, outputs = output)
+    return model
+#######################################################################################################
+def set_up_model4(architecture):
+    '''
+    Peaks and their positions deltas as inputs
+    '''
+    peak_input = Input(
+        shape=(
+            architecture['n_pattern_steps'], 
+            10),
+        batch_shape=(
+            None, 
+            architecture['n_pattern_steps'], 
+            1),
+        name='peak_input_'+str(architecture['sensors'][0]))
+    location_input = Input(
+        shape=(
+            architecture['n_pattern_steps'],
+            10),
+        batch_shape=(
+            None,
+            architecture['n_pattern_steps'],
+            1),
+        name = 'location_input'+str(architecture['sensors'][0]))
+
+    hidden_lstm_1 = LSTM(
+        architecture['n_units'][0],
+        activation = architecture['LSTM_activation'],
+        recurrent_activation = 'hard_sigmoid',
+        use_bias = architecture['bias'],
+        stateful = False)(peak_input)
+
+    hidden_dense_1 = Dense(
+        architecture['n_units'][0],
+        activation = architecture['Dense_activation'],
+        use_bias = True)(location_input)
+
+    merge_layer = concatenate([hidden_lstm_1, hidden_dense_1])
+
+    hidden_dense_2 = Dense(
+        architecture['n_units'][1],
+        activation = architecture['Dense_activation'],
+        use_bias = True)(merge_layer)
+
+    output = Dense(architecture['n_target_steps'], activation='tanh', name='peak_output')(hidden_dense_2)
+    model = Model(inputs = [peak_input, location_input], outputs = output)
     return model

@@ -5,11 +5,7 @@ from tensorflow import keras
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
 # Class files
-''' Imported when needed
-from LSTM import * 
-from MLP import *
-from LSTMbatch import *
-'''
+from Databatch import DataBatch
 # Utility file
 from util import *
 
@@ -17,7 +13,7 @@ if __name__ == "__main__":
     # Model
     architecture = {
         'prediction' : 'end_of_series', # end_of_series or entire_series
-        'model_type' : 'MLP', # MLP, LSTM or AutoencoderLSTM
+        'model_type' : 'LSTM', # MLP, LSTM or AutoencoderLSTM
         'direction' : 'uni', # uni or bi (uni a.k.a. vanilla net)
         'n_layers' : 1,
         'n_units' : [30, 15],
@@ -30,19 +26,21 @@ if __name__ == "__main__":
         'speeds' : 20,
         'data_split' : [60, 20, 20], # sorting of data into training testing and validation
 # MLP-specific settings
-        'delta' : 4, # Kan ändras
-        'n_pattern_steps' : 10, # Kan ändras
+        'delta' : 1, # Kan ändras
+        'n_pattern_steps' : 5, # Kan ändras
         'n_target_steps' : 1,
-        'MLPactivation' : 'tanh',
+        'Dense_activation' : 'tanh',
+        'LSTM_activation' : 'tanh',
 # LSTM-specific settings
         'LSTMactivation' : 'tanh'
     }
+    #architecture.update('n_series' : )
     early_stopping = True
     # Data
     damaged_element = 90#[10, 45, 68, 90, 112, 135, 170] Finns data på 45, 90 och 135
        
     # Training
-    epochs = 50
+    epochs = 10
 
     # Plotting
     do_plot_loss= True  
@@ -60,6 +58,7 @@ if __name__ == "__main__":
                               'our_measurements/healthy/100%/',
                               damaged_element,
                               100)}
+    '''
     eval_batch_stack = {
     '90%' : fit_to_NN_ad_hoc([0,0,100],
                             'our_measurements/e'+str(damaged_element)+'/90%/',
@@ -90,11 +89,16 @@ if __name__ == "__main__":
                         damaged_element,
                         33)
                         }
+    '''
+    #DataBatch.plot_series(healthy_batch_stack['100%']['batch1'], sensor = ['1/2'])
+    #DataBatch.plot_batch(healthy_batch_stack['100%']['batch1'], sensor_list = ['1/2'])
+    #quit()
+    
     machine_stack = {}
     scoreStacks = {}
     sensor_to_predict_list = [2] # Påverkar bara titel på plot
     for i in range(len(sensor_to_predict_list)):
-        name = 'J_MLPmodel3_a'+str(sensor_to_predict_list[i])
+        name = 'J_'+architecture['model_type']+'model4'+str(sensor_to_predict_list[i])
         try:
             f = open('models/'+name+'.json')
             machine_stack.update({
@@ -104,6 +108,8 @@ if __name__ == "__main__":
                      existing_model = True,
                      sensor_to_predict = sensor_to_predict_list[i])
             })
+            NeuralNet.modify_model(machine_stack[name].model) # OBS!!!
+            save_model(machine_stack[name].model, name+'mod') 
         except IOError:    
             machine_stack.update({
                 name : NeuralNet(architecture,
@@ -113,9 +119,9 @@ if __name__ == "__main__":
                      sensor_to_predict = sensor_to_predict_list[i])
             })
             NeuralNet.train_measurements(machine_stack[name], healthy_batch_stack['100%'], epochs)
-            NeuralNet.evaluation(machine_stack[name], healthy_batch_stack['100%'])
-            plot_loss(machine_stack[name], do_plot_loss)
-            save_model(machine_stack[name].model, name)        
+            save_model(machine_stack[name].model, name) 
+        NeuralNet.evaluation(machine_stack[name], healthy_batch_stack['100%'])
+        #plot_loss(machine_stack[name], do_plot_loss)                  
         scoreStacks.update({sensor_to_predict_list[i] : {
         100: NeuralNet.evaluation_batch(machine_stack[name], healthy_batch_stack['100%']),
         90 : NeuralNet.evaluation_batch(machine_stack[name], eval_batch_stack['90%']),
@@ -128,5 +134,5 @@ if __name__ == "__main__":
         }})
         
     plot_performance5(scoreStacks)
-    #prediction, hindsight = NeuralNet.prediction(machine_stack[name], healthy_batch_stack['100%'], 200)
-    #plot_prediction(machine_stack[name],prediction, 200, hindsight)
+    prediction, hindsight = NeuralNet.prediction(machine_stack[name], healthy_batch_stack['100%'], 200)
+    plot_prediction(machine_stack[name],prediction, 200, hindsight)

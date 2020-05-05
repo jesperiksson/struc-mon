@@ -5,11 +5,11 @@ import matplotlib.colors as colors
 import tensorflow as tf
 import keras
 from keras.models import model_from_json, Sequential
-from keras.layers import Dense, LSTM, Bidirectional, TimeDistributed, Input, RepeatVector, Dropout
+#from keras.layers import Dense, LSTM, Bidirectional, TimeDistributed, Input, RepeatVector, Dropout
 from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
-import pandas as pd
+#import pandas as pd
 import os
 import h5py
 import random
@@ -27,28 +27,11 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
     s135path = path + 's135/'
     s170path = path + 's170/'
 
-    seed = 1
-    s10 = os.listdir(s10path)
-    s10.sort()
-    random.Random(seed).shuffle(s10)
+    seed = 10
+    file_list = os.listdir(s10path)
+    file_list.sort()
+    random.Random(seed).shuffle(file_list)
 
-    s45 = os.listdir(s45path)
-    s45.sort()
-    random.Random(seed).shuffle(s45)
-
-    s90 = os.listdir(s90path)
-    s90.sort()
-    random.Random(seed).shuffle(s90)
-
-    s135 = os.listdir(s135path)
-    s135.sort()
-    random.Random(seed).shuffle(s135)
-
-    s170 = os.listdir(s170path)
-    s170.sort()
-    random.Random(seed).shuffle(s170)
-
-    file_list = s90
     speeds = np.empty([len(file_list)])
     for i in range(len(file_list)):
         if len(file_list[i]) == 9:
@@ -57,28 +40,28 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
             speeds[i] = int(file_list[i][0:6])
     normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))
 
-    n_files = len(s90)
+    n_files = int(len(file_list)/4)
     batchStack = {}
     start = 0
-    to = 10000
+    to = -1
     diff = to-start
     for i in range(n_files):
         data = [None]*5
         
-        s10mat = h5py.File(s10path + s10[i],'r')
-        data[0] = encode_data(s10mat)
+        s10mat = h5py.File(s10path + file_list[i],'r')
+        data[0] = s10mat.get('acc')
 
-        s45mat = h5py.File(s45path + s45[i],'r')
-        data[1] = encode_data(s45mat)
+        s45mat = h5py.File(s45path + file_list[i],'r')
+        data[1] = s45mat.get('acc')
 
-        s90mat = h5py.File(s90path + s90[i],'r')
-        data[2] = encode_data(s90mat)
+        s90mat = h5py.File(s90path + file_list[i],'r')
+        data[2] = s90mat.get('acc')
 
-        s135mat = h5py.File(s135path + s135[i],'r')
-        data[3] = encode_data(s135mat)
+        s135mat = h5py.File(s135path + file_list[i],'r')
+        data[3] = s135mat.get('acc')
 
-        s170mat = h5py.File(s170path + s170[i],'r')
-        data[4] = encode_data(s170mat)
+        s170mat = h5py.File(s170path + file_list[i],'r')
+        data[4] = s170mat.get('acc')
         
         speed = int(file_list[i][0:5])/1000
 
@@ -89,11 +72,11 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
         else:
             category = 'test'
         batchStack.update({
-            'batch'+str(i) : DataBatch([data[0][1,start:to],
-                                        data[1][1,start:to],
-                                        data[2][1,start:to],
-                                        data[3][1,start:to],
-                                        data[4][1,start:to]],
+            'batch'+str(i) : DataBatch([data[0][1,:],
+                                        data[1][1,:],
+                                        data[2][1,:],
+                                        data[3][1,:],
+                                        data[4][1,:]],
                              i,
                              speed,
                              normalized_speeds[i],
@@ -129,32 +112,6 @@ def encode_data(data):
 def decode_data(data):
     return      
 
-def evaluate(self): # Evaluating the model on the test dataset
-    if self.data_split[2] == 0:
-        print('No batches assigned for testing')
-    '''
-    Args:
-    '''
-    def evaluation_generator():
-        test_data = np.array([]);
-        i = 0
-        while True:
-            i += 1
-            key = 'batch'+str(i%len(self.batchStack))
-            data = self.batchStack[key].data
-            if self.batchStack[key].category == 'test':
-                test_batch = np.array(self.batchStack[key].data)
-                targets = np.reshape(test_batch[self.pred_sensor,:],
-                                     [1, np.shape(data)[1], 1])
-                patterns = np.reshape(np.delete(test_batch,
-                                      self.pred_sensor, axis=0),
-                                      [1, np.shape(data)[1], 2])                    
-                yield (patterns, targets)
-    evaluation = self.model.evaluate_generator(evaluation_generator(), 
-                                               steps = int(self.n_batches*self.data_split[2]/100), 
-                                               verbose = 1)
-    return evaluation
-
 def predict_batch(self, batch_num):
     pred_batch = self.batchStack['batch'+str(batch_num)].data[sensor]   
     if self.architecture['prediction'] == 'entire_series': 
@@ -175,7 +132,7 @@ def predict_batch(self, batch_num):
 def plot_loss(self, show_plot = False):
     plt.figure()
     plt.plot(range(1,self.used_epochs+1), self.loss, 'bo', label='Training loss')
-    plt.plot(range(1,self.used_epochs+1), self.val_loss, 'b', label='Validation loss')
+    plt.plot(range(1,self.used_epochs+1), self.val_loss, 'ro', label='Validation loss')
     if show_plot == True:
         plt.title('Training and validation loss')
         plt.xlabel('Epochs')
