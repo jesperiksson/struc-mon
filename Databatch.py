@@ -9,8 +9,7 @@ from sklearn import preprocessing
 class DataBatch():
     def __init__(self, data, batch_num, speed, normalized_speed, element, category = 'train', damage_state = 1):
         self.data = np.array(data)
-        self.normalized_data = preprocessing.normalize(self.data)
-        #self.standardized_data = 
+        self.data = preprocessing.normalize(self.data)
         sensors = np.shape(data)[0]
         self.batch_num = batch_num
         self.category = category
@@ -20,7 +19,7 @@ class DataBatch():
         self.element = element/180
         self.damage_state = damage_state
         self.timestep = 0.001
-        self.timesteps = np.arange(0, self.n_steps, 1)/self.timestep
+        self.timesteps = np.arange(0, self.n_steps, 1)
         assert self.element <= 1
         self.batch = {'1/18' : np.array(data[0]),
                       '1/4'  : np.array(data[1]),
@@ -28,25 +27,30 @@ class DataBatch():
                       '3/4'  : np.array(data[3]),
                       '17/18': np.array(data[4])
                       }
-        self.extrema = sp.signal.argrelextrema(
-            np.absolute(data[2]), 
-            np.greater, 
-            axis = 0, 
-            order = 1)
-        self.peaks, properties = sp.signal.find_peaks(
-            self.normalized_data[2], 
-            height = None, 
-            threshold = None,
-            distance = 2,
-            prominence = None,
-            width = None)
-        indices = self.extrema[0]
-        self.peaks = np.empty([sensors+1, np.shape(indices)[0]])
-        self.locations = self.timesteps[indices]
+        self.extrema = [None]*sensors
+        self.peaks = [None]*sensors
+        self.extrema_indices = [None]*sensors
+        self.peaks_indices = [None]*sensors
         for i in range(sensors):
-            self.peaks[i] =self.normalized_data[i][indices]
+            indices = sp.signal.argrelextrema(
+                np.absolute(data[i]), 
+                np.greater, 
+                axis = 0, 
+                order = 1)
+            self.extrema_indices[i] = indices[0]
+            self.extrema[i] = self.data[i][self.extrema_indices[i]]
+        
+            self.peaks_indices[i], properties = sp.signal.find_peaks(
+                self.data[i], 
+                height = None, 
+                threshold = None,
+                distance = 2,
+                prominence = None,
+                width = None)
+            self.peaks[i] = self.data[i][self.peaks_indices[i]]
+        self.peak_steps = np.shape(self.peaks[0])[0]
 
-    def plot_batch(self, sensor_list = ['1/2']):
+    def plot_batch(self, sensor = '1/2'):
         sensor_dict = {
             '1/18' : 0,
             '1/4'  : 1,
@@ -65,16 +69,18 @@ class DataBatch():
         plt.show()
         return
 
-    def plot_series(self, sensor = '1/2'):
+    def plot_series(self, plot_sensor = '1/2'):
         sensor_dict = {
             '1/18' : 0,
             '1/4'  : 1,
             '1/2'  : 2,
             '3/4'  : 3,
             '17/18': 4}
-        print(type(self.timesteps), type(self.data[2,:]))
-        plt.plot(self.timesteps, self.data[2,:], 'b', linewidth=0.4)
-        plt.plot(self.peaks[0,:], self.peaks[1,:], 'r*')
+        sensor = sensor_dict['1/2']
+        plt.plot(self.timesteps, self.data[sensor,:], 'b', linewidth=0.4)
+        print(np.shape(self.extrema_indices[2]), np.shape(self.extrema[2]))
+        plt.plot(self.peaks_indices[sensor], self.peaks[sensor], 'r*', mew = 0.02)
+        plt.plot(self.extrema_indices[sensor], self.extrema[sensor], 'go', mew = 0.02)
         plt.show()
 
 

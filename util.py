@@ -41,7 +41,7 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
     normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))
 
     n_files = int(len(file_list)/4)
-    batchStack = {}
+    series_stack = {}
     start = 0
     to = -1
     diff = to-start
@@ -71,7 +71,7 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
             category = 'validation'
         else:
             category = 'test'
-        batchStack.update({
+        series_stack.update({
             'batch'+str(i) : DataBatch([data[0][1,:],
                                         data[1][1,:],
                                         data[2][1,:],
@@ -84,7 +84,7 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
                              category,
                              healthy_percentage)
                             })
-    return batchStack
+    return series_stack
 
 def save_model(model,name):
     '''
@@ -97,14 +97,6 @@ def save_model(model,name):
     model.save_weights('models/'+name+'.h5')
     print('Saved model:', name)
 
-def plot_prediction(self, prediction, batch_num, hindsight):
-    plt.figure()
-    plt.plot(range(len(prediction)), prediction, linewidth=0.3)
-    plt.plot(range(len(hindsight)), hindsight, linewidth=0.3)
-    plt.legend(['Prediction','Data'])
-    plt.show()
-    return
-
 def encode_data(data):
     data = preprocessing.normalize(data.get('acc'))
     return data
@@ -113,7 +105,7 @@ def decode_data(data):
     return      
 
 def predict_batch(self, batch_num):
-    pred_batch = self.batchStack['batch'+str(batch_num)].data[sensor]   
+    pred_batch = self.series_stack['batch'+str(batch_num)].data[sensor]   
     if self.architecture['prediction'] == 'entire_series': 
         patterns = np.reshape(np.delete(pred_batch, self.pred_sensor, axis=0), [1, np.shape(pred_batch)[1], 2])
     elif self.architecture['prediction'] == 'end_of_series':
@@ -181,8 +173,13 @@ def plot_performance5(scoreStacks):
     plt.legend()
     plt.show()
         
-
-
+def plot_prediction(self, prediction, series_num, hindsight):
+    plt.figure()
+    plt.plot(range(len(prediction)), prediction, linewidth=0.3)
+    plt.plot(range(len(hindsight)), hindsight, linewidth=0.3)
+    plt.legend(['Prediction','Data'])
+    plt.show()
+    return
 
 
 
