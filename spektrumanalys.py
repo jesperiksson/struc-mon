@@ -22,6 +22,7 @@ t_limit=int(t_limit)
 acc1=acc[t_limit:]
 
 
+
 # tidsvektor
 t_steg=1/Fs                         # steglängd för tidsvektor 
 t=ar.array('f',range(0, int(T/t_steg)+1))
