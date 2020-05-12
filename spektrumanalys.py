@@ -47,8 +47,8 @@ S = 2.0/N
 L = S*abs(X)
 plt.semilogy(f,L) #test plot
 plt.show()
-'''
+
 from scipy import find_peaks
 peaks= sio.find_peaks(L)
 plt.plot(f,L)
-plt.plot(peaks, f[peaks], "x")'''
+plt.plot(peaks, f[peaks], "x")
