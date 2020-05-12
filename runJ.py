@@ -16,15 +16,15 @@ if __name__ == "__main__":
     #####################
 
     MLParchitecture = {
-        'n_units' : [30, 15],
+        'n_units' : [50, 15],
         'bias' : True,
         'elements' : [10, 45, 68, 90, 112, 135, 170],
         'healthy' : [33, 43, 52 , 62, 71, 81, 90, 100],
         'sensors' : [10, 45, 90, 135, 170],
         'speeds' : 20,
         'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
-        'delta' : 1, # Kan ändras
-        'n_pattern_steps' : 5, # Kan ändras
+        'delta' : 4, # Kan ändras
+        'n_pattern_steps' : 20, # Kan ändras
         'batch_size' : 25,
         'n_target_steps' : 1,
         'Dense_activation' : 'tanh',
@@ -96,7 +96,6 @@ if __name__ == "__main__":
                               damaged_element,
                               100)}
     data_split = {'train':0, 'validation':0, 'test':100}
-    '''
 
     '''
     eval_series_stack = get_eval_series(data_split, damaged_element) 
@@ -110,12 +109,13 @@ if __name__ == "__main__":
     DataBatch.plot_batch(eval_series_stack['43%'])
     DataBatch.plot_batch(eval_series_stack['33%'])
     quit()
+    '''
     machine_stack = {}
     scoreStacks = {}
 
     sensor_to_predict_list = [2] # Påverkar bara titel på plot
     for i in range(len(sensor_to_predict_list)):
-        name = 'J_'+use+'model5_2_'+str(sensor_to_predict_list[i])
+        name = 'J_'+use+'model3_2_'+str(sensor_to_predict_list[i])
         try:
             f = open('models/'+name+'.json')
             machine_stack.update({
@@ -140,7 +140,7 @@ if __name__ == "__main__":
             plot_loss(machine_stack[name], name)
         
         NeuralNet.evaluation(machine_stack[name], healthy_series_stack['100%'])
-         
+        ''' 
         eval_series_stack = get_eval_series(data_split, damaged_element)               
         scoreStacks.update({sensor_to_predict_list[i] : {
         100: NeuralNet.evaluation_batch(machine_stack[name], healthy_series_stack['100%']),
@@ -152,8 +152,8 @@ if __name__ == "__main__":
         43 : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack['43%']),
         33 : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack['33%'])
         }})
-        
-    plot_performance5(scoreStacks)
+        '''
+    #plot_performance5(scoreStacks)
 
     ########## PREDICTIONS #############
     prediction_manual = {
@@ -161,4 +161,5 @@ if __name__ == "__main__":
         'stack' : healthy_series_stack['100%']
     }
     prediction = NeuralNet.prediction(machine_stack[name], prediction_manual)
+    print(prediction)
     plot_prediction(prediction, prediction_manual)

@@ -23,15 +23,12 @@ class NeuralNet():
                  sensor_to_predict = 0):
 
         self.arch = arch
-        self.ad_hoc_series_stack = None
         self.name = name
-        self.model_type = self.arch['model_type']
-        self.activation = self.arch['Dense_activation']
         self.sensor_to_predict = sensor_to_predict
         if early_stopping == True:
             self.early_stopping = [keras.callbacks.EarlyStopping(monitor='val_loss',
                                                  min_delta=0, 
-                                                 patience=3, # Pröva upp till typ 8
+                                                 patience=20, # Pröva upp till typ 8
                                                  verbose=1,
                                                  mode='auto',
                                                  restore_best_weights=True)]
@@ -56,7 +53,7 @@ class NeuralNet():
         else:
             raise Error
         model.compile(optimizer='adam', loss='mse', metrics=[rmse])
-        #plot_model(model, to_file='model.png')
+        plot_model(model, to_file='name.png')
         model.summary()
         self.model = model
         self.score = None
@@ -71,7 +68,7 @@ class NeuralNet():
         n_series  [x_n_series0 = a_n_series...]
         '''    
         self.history = self.model.fit_generator( generator(self,'train',series_stack), 
-                                                 steps_per_epoch=3, 
+                                                 steps_per_epoch=16, 
                                                  epochs=epochs, 
                                                  verbose=1,
                                                  callbacks=self.early_stopping, 
@@ -85,7 +82,7 @@ class NeuralNet():
 
     def evaluation(self, series_stack): # Model score (loss and RMSE)
         self.score = self.model.evaluate_generator(generator(self, 'test', series_stack),
-                                                   steps = self.arch['data_split'][2]/100*len(series_stack),
+                                                   steps = self.arch['data_split']['test']/100*len(series_stack),
                                                    verbose = 1)
         print('Model score: ', self.model.metrics_names, self.score)
         return
@@ -108,25 +105,32 @@ class NeuralNet():
         }
         return results
 
-    def prediction(self, series_stack, number):
+    def prediction(self, manual):
         delta = self.arch['delta']
         n_pattern_steps = self.arch['n_pattern_steps']
         n_target_steps = self.arch['n_target_steps']
-        key = 'batch'+str(number%len(series_stack))
-        n_series = int(series_stack[key].n_steps)-int(delta*n_pattern_steps)
+        key = 'batch'+str(manual['series_to_predict']%len(manual['stack']))
+        n_series = int(manual['stack'][key].n_steps)-int(delta*n_pattern_steps)
         patterns = np.empty([n_series,n_pattern_steps])
-        targets = np.empty([n_series,n_target_steps])
-        if series_stack[key].category == 'test':
-            for i in range(n_series):
-                pattern_indices = np.arange(i,i+(delta)*n_pattern_steps,delta)
-                target_indices = i+delta*n_pattern_steps
-                patterns[i,:] = series_stack[key].data[self.sensor_to_predict][pattern_indices]
-                targets[i,:] = series_stack[key].data[self.sensor_to_predict][target_indices]
-            prediction = self.model.predict(patterns, batch_size=10, verbose=1)
-            return(prediction, targets)
+        targets = np.empty([n_series,n_target_steps])        
+        for i in range(n_series):
+            pattern_indices = np.arange(i,i+(delta)*n_pattern_steps,delta)
+            target_indices = i+delta*n_pattern_steps
+            patterns[i,:] = manual['stack'][key].data[self.sensor_to_predict][pattern_indices]
+            targets[i,:] = manual['stack'][key].data[self.sensor_to_predict][target_indices]
+        predictions = self.model.predict(patterns, batch_size=10, verbose=1)
+        print(np.shape(predictions))
+        prediction = {
+            'prediction' : predictions,
+            'hindsight' : None,
+            'steps' : 1
+        }
+        if manual['stack'][key].category == 'test':
+            pass
         else:
             print('\n Not a test batch \n')
-        return
+        return prediction
+
 
 
 # General Utilities
