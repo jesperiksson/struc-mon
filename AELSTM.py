@@ -5,7 +5,7 @@ from Databatch import *
 import tensorflow as tf
 import keras
 from keras.models import Sequential, Model, model_from_json
-from keras.layers import Input, Dense, LSTM, concatenate, Activation, Reshape
+from keras.layers import Input, Dense, LSTM, concatenate, Activation, Reshape, RepeatVector
 from keras import metrics, callbacks, regularizers
 from keras.utils import plot_model
 from keras import backend
@@ -115,7 +115,6 @@ class NeuralNet():
         for i in range(len(series_stack)):
             series = series_stack['batch'+str(i%len(series_stack))]
             steps = get_steps(self, series)
-            print(series.n_steps, steps)
             if series.category == 'train':
                 self.score = self.model.evaluate_generator(
                     generator_peak(
@@ -211,7 +210,7 @@ def generator_peak(self, batch, include = ['foobar']):
     while True:
         for j in range(len(self.arch['pattern_sensors'])):
             l = 0        
-            for k in range(batch.peak_steps[self.arch['target_sensor']]):
+            for k in range(batch.data[self.arch['target_sensor']]):
                 if k%self.arch['pattern_delta'] == 0 and batch.peak_steps[self.arch['pattern_sensors'][j]] >= k + (self.arch['n_pattern_steps']+self.arch['n_target_steps'])*self.arch['delta']: # Filling the batch with samples
                     if l not in include:            
                         peak_pattern, location_pattern, peak_target = add_pattern(self, j, k, batch)
@@ -246,7 +245,7 @@ def add_pattern(self, j, k, batch):
         k+self.arch['delta']*self.arch['n_pattern_steps'],
         k+self.arch['delta']*self.arch['n_pattern_steps'] + self.arch['delta']*self.arch['n_target_steps'],
         self.arch['delta'])
-    peak_pattern = batch.peaks[self.arch['pattern_sensors'][j]][pattern_indices]
+    peak_pattern = batch.data[self.arch['pattern_sensors'][j]][pattern_indices]
     location_pattern = batch.peaks_delta[self.arch['pattern_sensors'][j]][pattern_indices]
     peak_target = batch.peaks[self.arch['target_sensor']][target_indices]
     return peak_pattern, location_pattern, peak_target
@@ -264,65 +263,6 @@ def get_steps(self, series):
 def rmse(true, prediction):
     return backend.sqrt(backend.mean(backend.square(prediction - true), axis=-1))
 
-
-#######################################################################################################
-def set_up_model3(arch):
-    accel_input = Input(shape=(arch['n_pattern_steps'], 10),
-                    batch_shape = (None, arch['n_pattern_steps'], 1),
-                    name='accel_input_'+str(arch['sensors'][0]))
-    hidden_1 = LSTM(arch['n_units'][0],
-                    #input_shape = (arch['n_pattern_steps'], 1),
-                    activation = arch['MLPactivation'],
-                    recurrent_activation = 'hard_sigmoid',
-                    use_bias=arch['bias'],
-                    stateful = False)(accel_input)
-    output = Dense(arch['n_target_steps'], activation='tanh', name='acceleration_output')(hidden_1)
-    model = Model(inputs = accel_input, outputs = output)
-    return model
-#######################################################################################################
-def set_up_model4(arch):
-    '''
-    Peaks and their positions deltas as inputs
-    '''
-    peak_input = Input(
-        shape=(
-            #arch['batch_size'],
-            arch['n_pattern_steps'], 
-            1),
-        name = 'peak_input_90')
-
-    location_input = Input(
-        shape=(
-            #arch['batch_size'],
-            arch['n_pattern_steps'],
-            1),
-        name = 'location_input_90')
-
-    merge_layer = concatenate([peak_input, location_input])
-   
-    hidden_lstm_1 = LSTM(
-        arch['n_units'][0],
-        batch_input_shape = (
-        arch['batch_size'],
-        arch['n_pattern_steps'],
-        1),
-        activation = arch['LSTM_activation'],
-        recurrent_activation = 'hard_sigmoid',
-        use_bias = arch['bias'],
-        dropout = 0.1,
-        stateful = False)(merge_layer)
-
-    hidden_dense_3 = Dense(
-        arch['n_units'][1],
-        activation = arch['Dense_activation'],
-        use_bias = True)(hidden_lstm_1)
-
-    output = Dense(
-        arch['n_target_steps'], 
-        activation='tanh', 
-        name='peak_output_'+str(arch['sensors'][arch['target_sensor']]))(hidden_dense_3)
-    model = Model(inputs = [peak_input, location_input], outputs = output, name='LSTM model')
-    return model
 #######################################################################################################
 def set_up_model5(arch):
     '''
@@ -334,24 +274,17 @@ def set_up_model5(arch):
             arch['n_pattern_steps'], 
             1),
         name = 'peak_input_90')
-
-    location_input = Input(
-        shape=(
-            #arch['batch_size'],
-            arch['n_pattern_steps'],
-            1),
-        name = 'location_input_90')
-
-    index_input = Input(
-        shape=(
-            1,),
-        name = 'index_input')
-
+    '''
     speed_input = Input(
         shape=(
             1,),
         name = 'speed_input')
-            
+    '''
+    encoded_1 = LSTM(arch['latent_dim'][0])(peak_input)
+    
+    decoded_1 = RepeatVector(arch['n_pattern_steps'])(encoded_1)
+
+    decoded_1 = LSTM(1, return_sequences=True)(decoded_1)
    
     hidden_lstm_1 = LSTM(
         arch['n_units'][0],
@@ -363,65 +296,25 @@ def set_up_model5(arch):
         recurrent_activation = 'hard_sigmoid',
         use_bias = arch['bias'],
         dropout = 0.1,
-        stateful = False)(peak_input)
+        stateful = False)(decoded_1)
 
-    hidden_lstm_2 = LSTM(
-        arch['n_units'][0],
-        batch_input_shape = (
-            arch['batch_size'],
-            arch['n_pattern_steps'],
-            1),
-        activation = arch['LSTM_activation'],
-        recurrent_activation = 'hard_sigmoid',
-        use_bias = arch['bias'],
-        dropout = 0.1,
-        stateful = False)(location_input)
-
+    '''
     hidden_dense_1 = Dense(
         arch['n_units'][0],
         activation = arch['Dense_activation'],
-        use_bias = True)(hidden_lstm_1)
-    
-    hidden_dense_2 = Dense(
-        arch['n_units'][0],
-        activation = arch['Dense_activation'],
-        use_bias = True)(location_input)
+        use_bias = True)(decoded_1)
 
-    merge_layer_1 = concatenate([hidden_lstm_1, hidden_lstm_2])
+
     
     hidden_dense_2 = Dense(
         1,
         use_bias = True)(speed_input)
-    
-    hidden_dense_3 = Dense(
-        1,
-        use_bias = True)(index_input)
-
-    hidden_dense_4 = Dense(
-        arch['n_units'][1],
-        activation = arch['Dense_activation'],
-        use_bias = True)(merge_layer_1)
-
-    merge_layer_2 = concatenate([hidden_dense_2, hidden_dense_3])
-
-    merge_layer_3 = concatenate([merge_layer_1, merge_layer_2])
-
-    hidden_dense_5 = Dense(
-        arch['n_units'][2],
-        activation = 'tanh',
-        use_bias = True)(merge_layer_3)
-
+    '''
     output = Dense(
         arch['n_target_steps'], 
         activation='tanh', 
-        name='peak_output_'+str(arch['sensors'][arch['target_sensor']]))(hidden_dense_5)
-    model = Model(inputs = [peak_input, location_input, speed_input, index_input], outputs = output)
+        name='peak_output_'+str(arch['sensors'][arch['target_sensor']]))(hidden_lstm_1)
+    model = Model(inputs = peak_input, outputs = output)
     return model
 ######################################################################################################
-def set_up_model_test(arch):
-    input1 = Input(shape=(1,),name='1')
-    input2 = Input(shape=(1,),name='2')
-    conc = concatenate([input1,input2])
-    output1 = Dense(1,name='out')(conc)
-    model = Model(inputs = [input1,input2], outputs = output1)
-    return model 
+

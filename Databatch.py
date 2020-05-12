@@ -1,7 +1,7 @@
 import numpy as np
 import scipy as sp
 from scipy.signal import argrelextrema
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 from sklearn import preprocessing
 
 #np.set_printoptions(threshold=sys.maxsize)
@@ -9,7 +9,7 @@ from sklearn import preprocessing
 class DataBatch():
     def __init__(self, data, batch_num, speed, normalized_speed, element, category = 'train', damage_state = 1):
         self.data = np.array(data)
-        self.data = preprocessing.normalize(self.data)
+        #self.data = preprocessing.normalize(self.data)
         sensors = np.shape(data)[0]
         self.batch_num = batch_num
         self.category = category
@@ -31,6 +31,8 @@ class DataBatch():
         self.peaks = [None]*sensors
         self.extrema_indices = [None]*sensors
         self.peaks_indices = [None]*sensors
+        self.peak_steps = [None]*sensors
+        self.peaks_delta = [None]*sensors
         for i in range(sensors):
             indices = sp.signal.argrelextrema(
                 np.absolute(data[i]), 
@@ -48,25 +50,37 @@ class DataBatch():
                 prominence = None,
                 width = None)
             self.peaks[i] = self.data[i][self.peaks_indices[i]]
-        self.peak_steps = np.shape(self.peaks[0])[0]
+            self.peak_steps[i] = np.shape(self.peaks[i])[0]
+            peaks_delta = np.diff(self.peaks_indices[i])
+            self.peaks_delta[i] = preprocessing.normalize(peaks_delta.reshape(-1, 1))
 
-    def plot_batch(self, sensor = '1/2'):
+    def plot_batch(stack, sensor = '1/2'):
         sensor_dict = {
             '1/18' : 0,
             '1/4'  : 1,
             '1/2'  : 2,
             '3/4'  : 3,
             '17/18': 4}
-        fig, axs = plt.subplots(1, 1, constrained_layout = True, squeeze = False)
-        print(axs)
-        for i in range(len(sensor_list)):
-            axs[i].plot(self.timesteps, self.data[sensor_dict[sensor_list[i]],:], 'b', linewidth=0.4)
-            axs[i].plot(self.peaks[0,:], self.peaks[1,:], 'ro', linewidth = 0.4)
-            axs[i].set_title(sensor_dict[sensor_list[i]])
-            axs[i].set_xlabel('timesteps')
-            axs[i].set_ylabel('acceleration')
-        plt.suptitle('Batch '+str(self.batch_num))
-        plt.show()
+        sensor = sensor_dict['17/18']
+        side = min(int(np.floor(np.sqrt(len(stack)))),7)
+        fig, axs = plt.subplots(side, side, constrained_layout=True)
+        k = 0
+        for i in range(side):            
+            for j in range(side):        
+                key = 'batch'+str(k%len(stack))
+                axs[i][j].plot(stack[key].timesteps, stack[key].data[sensor,:], 'b', linewidth=0.1)
+                #plt.plot(stack[key].peaks_indices[sensor], stack[key].peaks[sensor], 'ro', linewidth = 0.4)
+                axs[i][j].set_title(str(stack[key].speed)+'km/h')
+                #plt.set_xlabel('timesteps')
+                #plt.set_ylabel('acceleration')
+                k += 1
+            k += 1
+        plt.suptitle(str(stack[key].damage_state)+'% Healthy at mid-span, registered at sensor: '+str(sensor+1))
+        name = 'E'+str(stack[key].damage_state)+'_d90_s'+str(sensor)+'.png'
+        #print(name)
+        plt.savefig(name)
+        #plt.show()
+
         return
 
     def plot_series(self, plot_sensor = '1/2'):
@@ -78,7 +92,6 @@ class DataBatch():
             '17/18': 4}
         sensor = sensor_dict['1/2']
         plt.plot(self.timesteps, self.data[sensor,:], 'b', linewidth=0.4)
-        print(np.shape(self.extrema_indices[2]), np.shape(self.extrema[2]))
         plt.plot(self.peaks_indices[sensor], self.peaks[sensor], 'r*', mew = 0.02)
         plt.plot(self.extrema_indices[sensor], self.extrema[sensor], 'go', mew = 0.02)
         plt.show()
