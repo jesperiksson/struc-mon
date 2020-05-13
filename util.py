@@ -204,17 +204,45 @@ def get_eval_series(data_split, damaged_element, a):
     }
     return eval_series_stack
 
+import scipy.stats as stats
 
+def score_evaluation(score_Stack,sensor_ind):
+    limit=0.90                          #difference between healthy/unhealthy
+    dmg_cases=[90, 81, 71, 62, 52, 43, 33]
 
+    error1=0    #error type 1
+    error2=0    #error type 2
+    
+    
+    scores=score_Stack[sensor_ind[0]]
+    score=scores[100]
+    
+    data_set=score['scores']
+    mu=np.mean(data_set)
+    variance=np.var(data_set)
+    sigma=np.sqrt(variance)
 
+    ### HEALTHY EVALUATION ###
+    norm_test=stats.norm.cdf((data_set-mu)/sigma)
+    
+    for i in range(len(norm_test)):
+                   test_var=norm_test[i]
+                   if test_var > limit :
+                       error1+= 1
+                    
 
+    print('False positives ' + str(error1) + ' out of ' + str(len(norm_test)))
 
+    tests=0
+    for k in range(len(dmg_cases)):
+        X=scores[dmg_cases[k]]
+        Xs=X['scores']
+        norm_test_dmg=stats.norm.cdf((Xs-mu)/sigma)
+        for j in range(len(norm_test_dmg)):
+            test_var=norm_test_dmg[j]
+            tests+= 1
+            if test_var < limit :
+                error2+= 1
+                print(dmg_cases[k])
 
-
-
-
-
-
-
-
-
+    print('False negatives ' + str(error2) + ' out of ' + str(tests))               
