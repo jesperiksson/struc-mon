@@ -19,7 +19,7 @@ from MLP import *
 
 ''' Utilities for various classes'''
 
-def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
+def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage, arch):
     from Databatch import DataBatch
     s10path = path + 's10/'
     s45path = path + 's45/'
@@ -42,8 +42,8 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage):
 
     n_files = int(len(file_list)/1)
     series_stack = {}
-    start = 0
-    to = -1
+    start = arch['from']
+    to = arch['to']
     diff = to-start
     for i in range(n_files):
         data = [None]*5
@@ -132,49 +132,76 @@ def plot_performance5(scoreStacks):
     plt.legend()
     plt.show()
         
-def plot_prediction(prediction, manual):
+def plot_prediction(prediction, manual, net):
     key = 'batch'+str(manual['series_to_predict']%len(manual['stack']))
     series = manual['stack'][key]
     plt.figure()
-    for i in range(prediction['steps']):
-        plt.plot(prediction['indices'][i,:], prediction['prediction'][i,:], 'b', linewidth=0.4)
-        plt.plot(prediction['indices'][i,:], prediction['hindsight'][i,:], 'r', linewidth=0.4)
-    plt.plot(series.timesteps, series.data[prediction['sensor']], 'g', linewidth=0.05)
-    plt.legend(['Prediction','Data','Signals'])
+    if net == 'LSTM' or net == 'AELSTM':
+        for i in range(prediction['steps']):
+            plt.plot(prediction['indices'][i,:], prediction['prediction'][i,:], 'b', linewidth=0.4)
+            plt.plot(prediction['indices'][i,:], prediction['hindsight'][i,:], 'r', linewidth=0.4)    
+        plt.plot(series.timesteps, series.data[prediction['sensor']], 'g', linewidth=0.05)
+        plt.legend(['Prediction','Data','Signals'])
+    elif net == 'MLP':
+        plt.plot(prediction['indices'], prediction['prediction'], 'b', linewidth=0.4)
+        plt.plot(prediction['indices'], prediction['hindsight'], 'r', linewidth=0.4) 
+        plt.legend(['Prediction', 'Signals'])   
+    
     plt.show()
     return
 
-def get_eval_series(data_split, damaged_element):
+def get_eval_series(data_split, damaged_element, a):
     eval_series_stack = {
-    '90%' : fit_to_NN_ad_hoc(data_split,
-                            'our_measurements/e'+str(damaged_element)+'/90%/',
-                            damaged_element,
-                            90),
-    '81%' : fit_to_NN_ad_hoc(data_split,
-                            'our_measurements/e'+str(damaged_element)+'/81%/',
-                            damaged_element,
-                            81),
-    '71%' : fit_to_NN_ad_hoc(data_split,
-                            'our_measurements/e'+str(damaged_element)+'/71%/',
-                            damaged_element,
-                            71),
-    '62%' : fit_to_NN_ad_hoc(data_split,
-                        'our_measurements/e'+str(damaged_element)+'/62%/',
-                        damaged_element,
-                        62),     
-    '52%' : fit_to_NN_ad_hoc(data_split,
-                        'our_measurements/e'+str(damaged_element)+'/52%/',
-                        damaged_element,
-                        52),
-    '43%' : fit_to_NN_ad_hoc(data_split,
-                        'our_measurements/e'+str(damaged_element)+'/43%/',
-                        damaged_element,
-                        43),
-    '33%' : fit_to_NN_ad_hoc(data_split,
-                        'our_measurements/e'+str(damaged_element)+'/33%/',
-                        damaged_element,
-                        33)
-                        }
+        '90%' : fit_to_NN_ad_hoc(
+            data_split,
+            'our_measurements/e'+str(damaged_element)+'/90%/',
+            damaged_element,
+            90,
+            a
+        ),
+        '81%' : fit_to_NN_ad_hoc(
+            data_split,
+            'our_measurements/e'+str(damaged_element)+'/81%/',
+            damaged_element,
+            81,
+            a
+        ),
+        '71%' : fit_to_NN_ad_hoc(
+            data_split,
+            'our_measurements/e'+str(damaged_element)+'/71%/',
+            damaged_element,
+            71,
+            a
+        ),
+        '62%' : fit_to_NN_ad_hoc(
+            data_split,
+            'our_measurements/e'+str(damaged_element)+'/62%/',
+            damaged_element,
+            62,
+            a
+        ),     
+        '52%' : fit_to_NN_ad_hoc(
+            data_split,
+            'our_measurements/e'+str(damaged_element)+'/52%/',
+            damaged_element,
+            52,
+            a
+        ),
+        '43%' : fit_to_NN_ad_hoc(
+            data_split,
+            'our_measurements/e'+str(damaged_element)+'/43%/',
+            damaged_element,
+            43,
+            a
+        ),
+        '33%' : fit_to_NN_ad_hoc(
+            data_split,
+            'our_measurements/e'+str(damaged_element)+'/33%/',
+            damaged_element,
+            33,
+            a
+        )
+    }
     return eval_series_stack
 
 
