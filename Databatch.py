@@ -53,7 +53,22 @@ class DataBatch():
             self.peak_steps[i] = np.shape(self.peaks[i])[0]
             peaks_delta = np.diff(self.peaks_indices[i])
             self.peaks_delta[i] = preprocessing.normalize(peaks_delta.reshape(-1, 1))
+   
+    ### SPEKTRUM ANALYS ###
+        X=sp.fftpack.fft(self.data)
 
+        velocity=speed*3.6/10               
+        t=self.timestep*self.timesteps      #time vector
+        Fs=1/self.timestep                  #Samplig freq
+        
+        Tot_time=len(self.data)/Fs          #Total time for sample
+        f_steps=1/Tot_time                  #step between freq in plot
+
+        self.f=np.array(range(0, int(Fs/f_steg)))*f_steg
+
+        S = 2.0/len(t.steps)
+        self.L = S*abs(X)
+    ### End ###
     def plot_batch(stack, sensor = '1/2'):
         sensor_dict = {
             '1/18' : 0,
