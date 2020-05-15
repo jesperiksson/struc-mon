@@ -2,33 +2,27 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-#import tensorflow as tf
-#import keras
-#from keras.models import model_from_json, Sequential
-#from keras.layers import Dense, LSTM, Bidirectional, TimeDistributed, Input, RepeatVector, Dropout
-#from sklearn import preprocessing
-#from sklearn.preprocessing import MinMaxScaler
-#from sklearn.metrics import mean_squared_error
-#import pandas as pd
+import scipy.stats as stats
+from sklearn.metrics import roc_curve
 import os
 import h5py
 import random
 
 # Classes
-from MLP import *
 
 ''' Utilities for various classes'''
 
 def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage, arch):
     from Databatch import DataBatch
-    s10path = path + 's10/'
-    s45path = path + 's45/'
-    s90path = path + 's90/'
-    s135path = path + 's135/'
-    s170path = path + 's170/'
+    paths = {}
+
+    for i in range(len(arch['active_sensors'])):
+        paths.update(
+            {arch['active_sensors'][i] : path+'s'+arch['active_sensors'][i]+'/'})
 
     seed = 1000
-    file_list = os.listdir(s10path)
+    
+    file_list = os.listdir(paths[arch['active_sensors'][0]])
     file_list.sort()
     random.Random(seed).shuffle(file_list)
 
@@ -46,24 +40,38 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage, arch
     to = arch['to']
     diff = to-start
     for i in range(n_files):
-        data = [None]*5
-        
-        s10mat = h5py.File(s10path + file_list[i],'r')
-        data[0] = s10mat.get('acc')
-
-        s45mat = h5py.File(s45path + file_list[i],'r')
-        data[1] = s45mat.get('acc')
-
-        s90mat = h5py.File(s90path + file_list[i],'r')
-        data[2] = s90mat.get('acc')
-
-        s135mat = h5py.File(s135path + file_list[i],'r')
-        data[3] = s135mat.get('acc')
-
-        s170mat = h5py.File(s170path + file_list[i],'r')
-        data[4] = s170mat.get('acc')
-        
+        data = [None]*len(paths)
+        for j in range(len(paths)):
+            mat = h5py.File(paths[arch['active_sensors'][j]] + file_list[i], 'r')
+            data[j] = mat.get('acc')[1,start:to]
+        '''
+        try:
+            s10mat = h5py.File(paths['s10path'] + file_list[i],'r')
+            data[0] = s10mat.get('acc')
+        except OSError:
+            data[0] = np.zeros(diff)
+        try:
+            s45mat = h5py.File(paths['s45path'] + file_list[i],'r')
+            data[1] = s45mat.get('acc')
+        except OSError:
+            data[1] = np.zeros(diff)
+        try:
+            s90mat = h5py.File(paths['s90path'] + file_list[i],'r')
+            data[2] = s90mat.get('acc')
+        except OSError:
+            data[2] = np.zeros(diff)
+        try:
+            s135mat = h5py.File(paths['s135path'] + file_list[i],'r')
+            data[3] = s135mat.get('acc')
+        except OSError:
+            data[3] = np.zeros(diff)
+        try:
+            s170mat = h5py.File(paths['s170path'] + file_list[i],'r')
+            data[4] = s170mat.get('acc')
+        except OSError:
+            data[4] = np.zeros(diff)        
         #speed = int(file_list[i][0:5])/1000
+        '''
 
         if i/n_files <= data_split['train']/100:
             category = 'train'
@@ -72,11 +80,7 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage, arch
         else:
             category = 'test'
         series_stack.update({
-            'batch'+str(i) : DataBatch([data[0][1,start:to],
-                                        data[1][1,start:to],
-                                        data[2][1,start:to],
-                                        data[3][1,start:to],
-                                        data[4][1,start:to]],
+            'batch'+str(i) : DataBatch(data,
                              i,
                              speeds[i]/1000,
                              normalized_speeds[i],
@@ -105,7 +109,7 @@ def plot_loss(self, name):
     plt.xlabel('Epochs')
     plt.ylabel('Loss - RMSE')
     plt.legend()
-    plt.savefig(fname = name+'.png')
+    plt.savefig(fname = name+'_loss_plot.png')
     plt.show() 
 
 def plot_performance5(scoreStacks):
@@ -204,9 +208,9 @@ def get_eval_series(data_split, damaged_element, a):
     }
     return eval_series_stack
 
-import scipy.stats as stats
 
-def score_evaluation(score_Stack,sensor_ind):
+
+def score_evaluation(score_stack,a,):
     limit=0.90                          #difference between healthy/unhealthy
     dmg_cases=[90, 81, 71, 62, 52, 43, 33]
 
@@ -214,7 +218,7 @@ def score_evaluation(score_Stack,sensor_ind):
     error2=0    #error type 2
     
     
-    scores=score_Stack[sensor_ind[0]]
+    scores=score_stack[sensor_ind[0]]
     score=scores[100]
     
     data_set=score['scores']
@@ -226,9 +230,8 @@ def score_evaluation(score_Stack,sensor_ind):
     norm_test=stats.norm.cdf((data_set-mu)/sigma)
     
     for i in range(len(norm_test)):
-                   test_var=norm_test[i]
-                   if test_var > limit :
-                       error1+= 1
+        if norm_test[i] > limit :
+           error1+= 1
                     
 
     print('False positives ' + str(error1) + ' out of ' + str(len(norm_test)))
@@ -245,4 +248,26 @@ def score_evaluation(score_Stack,sensor_ind):
                 error2+= 1
                 print(dmg_cases[k])
 
-    print('False negatives ' + str(error2) + ' out of ' + str(tests))               
+    print('False negatives ' + str(error2) + ' out of ' + str(tests)) 
+
+def get_binary_prediction(score_stack, arch, limit = 0.9):
+    phi = [None] * len(score_stack)
+    prediction = [None] * len(score_stack)
+    for i in range(len(score_stack)):
+        mu = np.mean(score_stack[arch['sensor_to_predict']][arch['healthy'][i]])
+        sigma = np.sqrt(np.var(score_stack[arch['sensor_to_predict']][arch['healthy'][i]]))
+        phi[i] = stats.norm.cdf(score_stack[arch['sensor_to_predict']][arch['healthy'][i]], mu, sigma)
+        prediction[i] = np.heaviside(phi[i]-limit, 1)
+    prediction = {
+        'Phi' : phi,
+        'prediction' : prediction}
+    return prediction
+
+def plot_roc(prediction):
+    false_positive_rate, true_positive_rate = roc_curve(
+        y_true = prediction['labels'],
+        y_score = prediction['Phi']
+        )
+    plt.plot(false_positive_rate, true_positive_rate)
+    plt.show()
+                  
