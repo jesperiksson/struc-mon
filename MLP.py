@@ -28,7 +28,7 @@ class NeuralNet():
         if early_stopping == True:
             self.early_stopping = [keras.callbacks.EarlyStopping(monitor='val_loss',
                                                  min_delta=0, 
-                                                 patience=20, # Pröva upp till typ 8
+                                                 patience=arch['patience'], # Pröva upp till typ 8
                                                  verbose=1,
                                                  mode='auto',
                                                  restore_best_weights=True)]
@@ -38,7 +38,7 @@ class NeuralNet():
         self.existing_model = existing_model
         n_sensors = len(arch['sensors'])         
         if self.existing_model == False:
-            model = set_up_model3(arch)
+            model = set_up_model4(arch)
 
         elif self.existing_model == True:
             model_path = 'models/'+self.name+'.json'
@@ -58,7 +58,7 @@ class NeuralNet():
         self.model = model
         self.score = None
 
-    def train_measurements(self, series_stack, epochs = 200):
+    def train_measurements(self, series_stack):
         '''
         Reshapes the data to the form 
         0 [x_00 = a_1, x_01 = a_1+delta, ..., x_0(n_pattern_steps) = a_(delta*n_pattern_steps)]
@@ -67,13 +67,15 @@ class NeuralNet():
         .
         n_series  [x_n_series0 = a_n_series...]
         '''    
-        self.history = self.model.fit_generator( generator(self,'train',series_stack), 
-                                                 steps_per_epoch=16, 
-                                                 epochs=epochs, 
-                                                 verbose=1,
-                                                 callbacks=self.early_stopping, 
-                                                 validation_data = generator(self,'validation', series_stack),
-                                                 validation_steps=5)
+        self.history = self.model.fit_generator(
+            generator(self, 'train', series_stack[self.arch['preprocess_type']]), 
+            steps_per_epoch=16, 
+            epochs=self.arch['epochs'], 
+            verbose=1,
+            callbacks=self.early_stopping, 
+            validation_data = generator(self,'validation', series_stack),
+            validation_steps=5)
+
         self.model.summary()
         self.loss = self.history.history['loss']
         self.val_loss = self.history.history['val_loss']
@@ -81,7 +83,7 @@ class NeuralNet():
         return
 
     def evaluation(self, series_stack): # Model score (loss and RMSE)
-        self.score = self.model.evaluate_generator(generator(self, 'test', series_stack),
+        self.score = self.model.evaluate_generator(generator(self, 'test', series_stack[self.arch['preprocess_type']]),
                                                    steps = self.arch['data_split']['test']/100*len(series_stack),
                                                    verbose = 1)
         print('Model score: ', self.model.metrics_names, self.score)
@@ -90,9 +92,9 @@ class NeuralNet():
     def evaluation_batch(self, series_stack): # RMSE for a single batch
         scores = []
         speeds = []
-        for i in range(len(series_stack)):
-            key = 'batch'+str(i%len(series_stack))
-            if series_stack[key].category == 'test':
+        for i in range(len(series_stack[self.arch['preprocess_type']])):
+            key = 'batch'+str(i%len(series_stack[self.arch['preprocess_type']]))
+            if series_stack[self.arch['preprocess_type']][key].category == 'test':
                 patterns, targets = data_sequence(self, series_stack, key)
                 speed = series_stack[key].speed
                 score = self.model.test_on_batch(patterns, targets, reset_metrics=False)[1]#['loss', 'rmse']
@@ -109,21 +111,24 @@ class NeuralNet():
         delta = self.arch['delta']
         n_pattern_steps = self.arch['n_pattern_steps']
         n_target_steps = self.arch['n_target_steps']
-        key = 'batch'+str(manual['series_to_predict']%len(manual['stack']))
-        n_series = int(manual['stack'][key].n_steps)-int(delta*n_pattern_steps)
+        key = 'batch'+str(manual['series_to_predict']%len(manual['stack'][self.arch['preprocess_type']]))
+        n_series = int(manual['stack'][self.arch['preprocess_type']][key].n_steps)-int(delta*n_pattern_steps)
         patterns = np.empty([n_series,n_pattern_steps])
-        targets = np.empty([n_series,n_target_steps])        
+        targets = np.empty([n_series,n_target_steps])
+        indices = np.empty([n_series,1])        
         for i in range(n_series):
             pattern_indices = np.arange(i,i+(delta)*n_pattern_steps,delta)
             target_indices = i+delta*n_pattern_steps
-            patterns[i,:] = manual['stack'][key].data[self.sensor_to_predict][pattern_indices]
-            targets[i,:] = manual['stack'][key].data[self.sensor_to_predict][target_indices]
+            patterns[i,:] = manual['stack'][self.arch['preprocess_type']][key].data[self.sensor_to_predict][pattern_indices]
+            targets[i,:] = manual['stack'][self.arch['preprocess_type']][key].data[self.sensor_to_predict][target_indices]
+            indices[i,:] = i+delta*n_pattern_steps
         predictions = self.model.predict(patterns, batch_size=10, verbose=1)
-        print(np.shape(predictions))
         prediction = {
             'prediction' : predictions,
-            'hindsight' : None,
-            'steps' : 1
+            'hindsight' : targets,
+            'steps' : n_series,
+            'indices' : indices,
+            'sensor' : self.arch['target_sensor']
         }
         if manual['stack'][key].category == 'test':
             pass
@@ -241,11 +246,38 @@ def set_up_model2(arch):
 ####################################################################################################
 def set_up_model3(arch):
     
-    accel_input = Input(shape=(arch['n_pattern_steps'], ),
-                        name='accel_input_'+str(arch['sensors'][0]))
-    hidden_1 = Dense(arch['n_units'][0],
+    accel_input = Input(
+        shape=(arch['n_pattern_steps'], ),
+        name='accel_input_'+str(arch['sensors'][0])
+        )
+
+    hidden_1 = Dense(arch['n_units']['first'],
                      activation = arch['Dense_activation'],
                      use_bias=arch['bias'])(accel_input)
     output = Dense(arch['n_target_steps'], activation='tanh', name='acceleration_output')(hidden_1) 
     model = Model(inputs = accel_input, outputs = output)
     return model
+#######################################################################################################
+def set_up_model4(arch):
+
+    accel_input_45 = Input(
+        shape = (arch['n_pattern_steps'], ),
+        name='accel_input_'+str(arch['sensors'][0]))
+
+    accel_input_90 = Input(
+        shape = (arch['n_pattern_steps'], ),
+        name='accel_input_'+str(arch['sensors'][1]))
+    
+    accel_input_135 = Input(
+        shape = (arch['n_pattern_steps'], ),
+        name='accel_input_'+str(arch['sensors'][2]))
+
+    merge = concatenate([accel_input_45, accel_input_90, accel_input_135])
+
+    hidden_1 = Dense(
+        arch['n_units']['first'],
+        activation = arch['Dense_activation'],
+        use_bias=arch['bias'])(accel_merge)
+    
+    output = Dense(arch['n_target_steps'], activation='tanh', name='acceleration_output')(hidden_1)
+    return model 

@@ -22,7 +22,8 @@ class NeuralNet():
 
         self.arch = arch
         self.name = name
-        self.sensor_to_predict = sensor_to_predict
+        self.target_sensor = self.arch['sensors'][self.arch['target_sensor']]
+        self.pattern_sensors = self.arch['sensors'][self.arch['pattern_sensors']]
         if early_stopping == True:
             self.early_stopping = [keras.callbacks.EarlyStopping(monitor='loss',
                                                  min_delta=0, 
@@ -69,7 +70,7 @@ class NeuralNet():
         self.loss = [None]
         self.val_loss = [None]
         for i in range(len(series_stack)):
-            series = series_stack['batch'+str(i%len(series_stack))]
+            series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
             steps = get_steps(self, series)
             try:
                 indices = np.random.choice(
@@ -85,6 +86,7 @@ class NeuralNet():
             exclude_train = indices[:split] # To be excluded from training
             train_steps = len(exclude_validation)
             validation_steps = len(exclude_train)
+            print(validation_steps)
             if series.category == 'train' or series.category == 'validation':
                 '''
                 steps_per_epoch is equal to the maximal number of patterns + targets that can fit in the 
@@ -96,12 +98,12 @@ class NeuralNet():
                         series,
                         exclude_train), 
                     steps_per_epoch=train_steps, # Number of batches to yield before performing backprop
-                    epochs=epochs, # Enough to fit all samples in a series once
+                    epochs=self.arch['epochs'], # Enough to fit all samples in a series once
                     verbose=1,
                     callbacks=self.early_stopping,
                     validation_data = generator_peak(
                         self,
-                            series,
+                        series,
                         exclude_validation),
                     validation_steps=validation_steps)
                 self.history.append(history)
@@ -113,9 +115,8 @@ class NeuralNet():
 
     def evaluation(self, series_stack):
         for i in range(len(series_stack)):
-            series = series_stack['batch'+str(i%len(series_stack))]
+            series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
             steps = get_steps(self, series)
-            print(series.n_steps, steps)
             if series.category == 'train':
                 self.score = self.model.evaluate_generator(
                     generator_peak(
@@ -130,7 +131,7 @@ class NeuralNet():
         scores = []
         speeds = []
         for i in range(len(series_stack)):
-            series = series_stack['batch'+str(i%len(series_stack))]
+            series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
             steps = int(np.floor(series.n_steps/self.arch['n_pattern_steps']))
             if series.category == 'test':
                 score = self.model.evaluate_generator(
@@ -149,7 +150,7 @@ class NeuralNet():
         return results
 
     def prediction(self, manual):
-        series = manual['stack']['batch'+str(manual['series_to_predict']%len(manual['stack']))]
+        series = manual[self.arch['preprocess_type']]['stack']['batch'+str(manual['series_to_predict']%len(manual['stack']))]
         steps = get_steps(self, series)
         predictions = self.model.predict(
             generator_peak(
@@ -163,7 +164,7 @@ class NeuralNet():
             start = i * self.arch['pattern_delta'] + self.arch['n_pattern_steps']*self.arch['delta']
             end = i * self.arch['pattern_delta'] + (self.arch['n_target_steps'] + self.arch['n_pattern_steps'])*self.arch['delta'] 
 
-            indices[i,:] = series.peaks_indices[self.arch['target_sensor']][start:end]
+            indices[i,:] = series.indices[self.arch['target_sensor']][start:end]
             hindsight[i,:] = series.peaks[self.arch['target_sensor']][start:end]
         prediction = {
             'prediction' : predictions,
@@ -211,8 +212,8 @@ def generator_peak(self, batch, include = ['foobar']):
     while True:
         for j in range(len(self.arch['pattern_sensors'])):
             l = 0        
-            for k in range(batch.peak_steps[self.arch['target_sensor']]):
-                if k%self.arch['pattern_delta'] == 0 and batch.peak_steps[self.arch['pattern_sensors'][j]] >= k + (self.arch['n_pattern_steps']+self.arch['n_target_steps'])*self.arch['delta']: # Filling the batch with samples
+            for k in range(batch.steps[self.arch['target_sensor']]):
+                if k%self.arch['pattern_delta'] == 0 and batch.steps[self.arch['pattern_sensors'][j]] >= k + (self.arch['n_pattern_steps']+self.arch['n_target_steps'])*self.arch['delta']: # Filling the batch with samples
                     if l not in include:            
                         peak_pattern, location_pattern, peak_target = add_pattern(self, j, k, batch)
                         patterns = {
@@ -221,7 +222,7 @@ def generator_peak(self, batch, include = ['foobar']):
                             'location_input_'+str(self.arch['sensors'][self.arch['pattern_sensors'][j]]) :
                             np.reshape(location_pattern,[1,self.arch['n_pattern_steps'],1]),
                             'speed_input' : np.array([batch.normalized_speed]),
-                            'index_input' : np.array([k / batch.peak_steps[self.arch['target_sensor']]])
+                            'index_input' : np.array([k / batch.steps[self.arch['target_sensor']]])
                         }
                         targets = {
                             'peak_output_'+str(self.arch['sensors'][self.arch['target_sensor']]) : 
@@ -247,19 +248,19 @@ def add_pattern(self, j, k, batch):
         k+self.arch['delta']*self.arch['n_pattern_steps'] + self.arch['delta']*self.arch['n_target_steps'],
         self.arch['delta'])
     peak_pattern = batch.peaks[self.arch['pattern_sensors'][j]][pattern_indices]
-    location_pattern = batch.peaks_delta[self.arch['pattern_sensors'][j]][pattern_indices]
+    location_pattern = batch.delta[self.arch['pattern_sensors'][j]][pattern_indices]
     peak_target = batch.peaks[self.arch['target_sensor']][target_indices]
     return peak_pattern, location_pattern, peak_target
 
 def get_steps(self, series):
     steps = int(
         np.floor(
-            (series.peak_steps[self.arch['target_sensor']]-(self.arch['n_pattern_steps']+self.arch['n_target_steps']))/self.arch['pattern_delta']
+            (series.steps[self.arch['target_sensor']]-(self.arch['n_pattern_steps']+self.arch['n_target_steps']))/self.arch['pattern_delta']
         )
     )
     if steps < 0:
         print(series.batch_num)
-    return steps    
+    return steps   
 
 def rmse(true, prediction):
     return backend.sqrt(backend.mean(backend.square(prediction - true), axis=-1))
@@ -363,6 +364,8 @@ def set_up_model5(arch):
         recurrent_activation = 'hard_sigmoid',
         use_bias = arch['bias'],
         dropout = 0.1,
+        return_sequences = True,
+        return_state = False,
         stateful = False)(peak_input)
 
     hidden_lstm_2 = LSTM(
@@ -379,6 +382,7 @@ def set_up_model5(arch):
 
     hidden_dense_1 = Dense(
         arch['n_units'][0],
+        input_shape = (arch['n_units'][0],2),
         activation = arch['Dense_activation'],
         use_bias = True)(hidden_lstm_1)
     

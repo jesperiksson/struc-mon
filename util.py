@@ -9,11 +9,18 @@ import h5py
 import random
 
 # Classes
+from Databatch import *
 
 ''' Utilities for various classes'''
 
-def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage, arch):
-    from Databatch import DataBatch
+def fit_to_NN(
+        data_split, 
+        path, 
+        damaged_element, 
+        healthy_percentage, 
+        arch, 
+        types = ('data')):
+    
     paths = {}
 
     for i in range(len(arch['active_sensors'])):
@@ -21,7 +28,6 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage, arch
             {arch['active_sensors'][i] : path+'s'+arch['active_sensors'][i]+'/'})
 
     seed = 1000
-    
     file_list = os.listdir(paths[arch['active_sensors'][0]])
     file_list.sort()
     random.Random(seed).shuffle(file_list)
@@ -35,7 +41,11 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage, arch
     normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))
 
     n_files = int(len(file_list)/1)
-    series_stack = {}
+    data_stack = {}
+    preprocess_stack = {}
+    peaks_stack = {}
+    frequency_stack = {}
+    extrema_stack = {}
     start = arch['from']
     to = arch['to']
     diff = to-start
@@ -44,34 +54,6 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage, arch
         for j in range(len(paths)):
             mat = h5py.File(paths[arch['active_sensors'][j]] + file_list[i], 'r')
             data[j] = mat.get('acc')[1,start:to]
-        '''
-        try:
-            s10mat = h5py.File(paths['s10path'] + file_list[i],'r')
-            data[0] = s10mat.get('acc')
-        except OSError:
-            data[0] = np.zeros(diff)
-        try:
-            s45mat = h5py.File(paths['s45path'] + file_list[i],'r')
-            data[1] = s45mat.get('acc')
-        except OSError:
-            data[1] = np.zeros(diff)
-        try:
-            s90mat = h5py.File(paths['s90path'] + file_list[i],'r')
-            data[2] = s90mat.get('acc')
-        except OSError:
-            data[2] = np.zeros(diff)
-        try:
-            s135mat = h5py.File(paths['s135path'] + file_list[i],'r')
-            data[3] = s135mat.get('acc')
-        except OSError:
-            data[3] = np.zeros(diff)
-        try:
-            s170mat = h5py.File(paths['s170path'] + file_list[i],'r')
-            data[4] = s170mat.get('acc')
-        except OSError:
-            data[4] = np.zeros(diff)        
-        #speed = int(file_list[i][0:5])/1000
-        '''
 
         if i/n_files <= data_split['train']/100:
             category = 'train'
@@ -79,21 +61,53 @@ def fit_to_NN_ad_hoc(data_split, path, damaged_element, healthy_percentage, arch
             category = 'validation'
         else:
             category = 'test'
-        series_stack.update({
-            'batch'+str(i) : DataBatch(data,
+        if 'data' in types:
+            data_stack.update({
+                'batch'+str(i) : DataBatch(data,
+                                 i,
+                                 speeds[i]/1000,
+                                 normalized_speeds[i],
+                                 category,
+                                 healthy_percentage)
+                                })
+        if 'frequency' in types:
+            frequency_stack.update({
+                'batch'+str(i) : frequencySpectrum(data,
+                                 i,
+                                 speeds[i]/1000,
+                                 normalized_speeds[i],
+                                 category,
+                                 healthy_percentage)
+                                })
+        if 'peaks' in types:
+            peaks_stack.update({
+                'batch'+str(i) : peaks(data,
+                                 i,
+                                 speeds[i]/1000,
+                                 normalized_speeds[i],
+                                 category,
+                                 healthy_percentage)
+                                })
+        if 'extrema' in types:
+            extrema_stack.update({
+            'batch'+str(i) : extrema(data,
                              i,
                              speeds[i]/1000,
                              normalized_speeds[i],
-                             damaged_element,
                              category,
                              healthy_percentage)
                             })
-    return series_stack
+
+    preprocess_stack.update({
+        'data' : data_stack,
+        'frequency' : frequency_stack,
+        'peaks' : peaks_stack,
+        'extrema' : extrema_stack
+        })    
+
+    return preprocess_stack
 
 def save_model(model,name):
-    '''
-    https://machinelearningmastery.com/save-load-keras-deep-learning-models/
-    '''
     model_json = model.to_json()
     with open('models/'+name+'.json', 'w') as json_file:
         json_file.write(model_json)
@@ -112,8 +126,7 @@ def plot_loss(self, name):
     plt.savefig(fname = name+'_loss_plot.png')
     plt.show() 
 
-def plot_performance5(scoreStacks):
-    sensors = ['1/18', '1/4', '1/2', '3/4', '17/18']
+def plot_performance(scoreStacks, a):
     score_keys = list(scoreStacks)
     cmap = plt.cm.rainbow
     norm = colors.Normalize(vmin=33,vmax=100)
@@ -122,6 +135,7 @@ def plot_performance5(scoreStacks):
         scoreStack = scoreStacks[score_keys[i]]
         plt.subplot(len(scoreStacks),1,i+1)
         percentage_keys = list(scoreStack)
+        print(percentage_keys)
         for j in range(len(percentage_keys)): # Iterates over percentages
             plt.plot(scoreStack[percentage_keys[j]]['speeds'], 
                      scoreStack[percentage_keys[j]]['scores'], 
@@ -140,12 +154,16 @@ def plot_prediction(prediction, manual, net):
     key = 'batch'+str(manual['series_to_predict']%len(manual['stack']))
     series = manual['stack'][key]
     plt.figure()
-    if net == 'LSTM' or net == 'AELSTM':
+    if net == 'LSTM': 
         for i in range(prediction['steps']):
             plt.plot(prediction['indices'][i,:], prediction['prediction'][i,:], 'b', linewidth=0.4)
             plt.plot(prediction['indices'][i,:], prediction['hindsight'][i,:], 'r', linewidth=0.4)    
         plt.plot(series.timesteps, series.data[prediction['sensor']], 'g', linewidth=0.05)
         plt.legend(['Prediction','Data','Signals'])
+    elif net == 'AELSTM':
+        number = 3
+        plt.plot(prediction['steps'], prediction['prediction'][number,:])
+        plt.plot(prediction['steps'], prediction['hindsight'][number,:])
     elif net == 'MLP':
         plt.plot(prediction['indices'], prediction['prediction'], 'b', linewidth=0.4)
         plt.plot(prediction['indices'], prediction['hindsight'], 'r', linewidth=0.4) 
@@ -154,58 +172,20 @@ def plot_prediction(prediction, manual, net):
     plt.show()
     return
 
-def get_eval_series(data_split, damaged_element, a):
-    eval_series_stack = {
-        '90%' : fit_to_NN_ad_hoc(
-            data_split,
-            'our_measurements/e'+str(damaged_element)+'/90%/',
-            damaged_element,
-            90,
-            a
-        ),
-        '81%' : fit_to_NN_ad_hoc(
-            data_split,
-            'our_measurements/e'+str(damaged_element)+'/81%/',
-            damaged_element,
-            81,
-            a
-        ),
-        '71%' : fit_to_NN_ad_hoc(
-            data_split,
-            'our_measurements/e'+str(damaged_element)+'/71%/',
-            damaged_element,
-            71,
-            a
-        ),
-        '62%' : fit_to_NN_ad_hoc(
-            data_split,
-            'our_measurements/e'+str(damaged_element)+'/62%/',
-            damaged_element,
-            62,
-            a
-        ),     
-        '52%' : fit_to_NN_ad_hoc(
-            data_split,
-            'our_measurements/e'+str(damaged_element)+'/52%/',
-            damaged_element,
-            52,
-            a
-        ),
-        '43%' : fit_to_NN_ad_hoc(
-            data_split,
-            'our_measurements/e'+str(damaged_element)+'/43%/',
-            damaged_element,
-            43,
-            a
-        ),
-        '33%' : fit_to_NN_ad_hoc(
-            data_split,
-            'our_measurements/e'+str(damaged_element)+'/33%/',
-            damaged_element,
-            33,
-            a
-        )
-    }
+def get_eval_series(data_split, damaged_element, a, path):
+    element_dir_list = os.listdir(path)
+    eval_series_stack = {}
+    for i in range(len(element_dir_list)):
+        damage_dir_list = os.listdir(path+element_dir_list[i])
+        for j in range(len(damage_dir_list)):
+            eval_series_stack.update({
+                damage_dir_list[j] : fit_to_NN(
+                    data_split,
+                    path+element_dir_list[i]+'/'+damage_dir_list[j]+'/',
+                    damaged_element,
+                    int(damage_dir_list[j][:2]),
+                    a)
+                })
     return eval_series_stack
 
 

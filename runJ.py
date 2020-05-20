@@ -1,77 +1,100 @@
 # Modules
-import numpy as np
-import tensorflow as tf
-from tensorflow import keras
-import matplotlib.pyplot as plt
-from scipy.io import loadmat
+#import numpy as np
+#import tensorflow as tf
+#from tensorflow import keras
+#import matplotlib.pyplot as plt
+#from scipy.io import loadmat
 # Class files
-from Databatch import DataBatch
+from Databatch import *
 # Utility file
 from util import *
 
 if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
-    use = 'MLP'
+    use = 'AELSTM'
+    name = '1'
     #####################
 
-    MLParchitecture = {
-        'n_units' : [50, 15],
+    sensors = {
+        'name' : name,        
+        'active_sensors' : ['90']
+        }
+    sensor_dict = {}
+    for i in range(len(sensors['active_sensors'])):
+        sensor_dict.update({
+            sensors['active_sensors'][i] : i
+            })
+    sensors.update({
+        'sensors' : sensor_dict
+        })
+    MLParchitecture = sensors
+    MLParchitecture.update({
+        'n_units' : {'first' : 50, 'second' : 15},
         'bias' : True,
         'elements' : [10, 45, 68, 90, 112, 135, 170],
         'healthy' : [33, 43, 52 , 62, 71, 81, 90, 100],
-        'sensors' : [10, 45, 90, 135, 170],
-        'speeds' : 20,
+        'epochs' : 50,
+        'patience' : 10,
         'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
         'delta' : 4, # Kan ändras
         'n_pattern_steps' : 20, # Kan ändras
         'batch_size' : 25,
         'n_target_steps' : 1,
         'Dense_activation' : 'tanh',
-        'pattern_sensors' : [2], # Indices must be used rahter than placements
-        'target_sensor' : 2
-    }
+        'pattern_sensors' : ['90'], # Indices must be used rahter than placements
+        'target_sensor' : 2,
+        'from' : 0,
+        'to' : -1
+    })
 
-    LSTMarchitecture = {
-        'n_units' : [100, 65, 35],
+    LSTMarchitecture = sensors
+    LSTMarchitecture.update({
+        'n_units' : {'first' : 50, 'second' : 15},
         'bias' : True,
         'elements' : [10, 45, 68, 90, 112, 135, 170],
         'healthy' : [33, 43, 52 , 62, 71, 81, 90, 100],
-        'sensors' : [10, 45, 90, 135, 170],
-        'speeds' : 20,
+        'epochs' : 10,
         'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
         'delta' : 1, # Kan ändras
-        'n_pattern_steps' : 250, # Kan ändras
+        'n_pattern_steps' : 150, # Kan ändras
         'batch_size' : 25,
-        'n_target_steps' : 50,
+        'n_target_steps' : 20,
         'pattern_delta' : 100,
         'Dense_activation' : 'tanh',
         'LSTM_activation' : 'tanh',
-        'pattern_sensors' : [2], # Indices must be used rahter than placements
-        'target_sensor' : 2,
-        'learning_rate' : 0.0001 # 0.001 by default
-    }
+        'pattern_sensors' : ('90'), 
+        'target_sensor' : '90',
+        'learning_rate' : 0.0001, # 0.001 by default
+        'from' : 0,
+        'to' : -1
+    })
 
-    AELSTMarchitecture = {
-        'n_units' : [100, 65, 35],
+    AELSTMarchitecture = sensors
+    AELSTMarchitecture.update({
+        'n_units' : {'first': 800, 'second': 200, 'third' : 40, 'fourth': 20},
         'bias' : True,
         'elements' : [10, 45, 68, 90, 112, 135, 170],
         'healthy' : [33, 43, 52 , 62, 71, 81, 90, 100],
-        'sensors' : [10, 45, 90, 135, 170],
         'speeds' : 20,
+        'epochs' : 10,
         'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
+        'preprocess_type' : 'data',
         'delta' : 1, # Kan ändras
-        'n_pattern_steps' : 2000, # Kan ändras
+        'n_pattern_steps' : 400, # Kan ändras
         'batch_size' : 25,
-        'n_target_steps' : 1000,
-        'pattern_delta' : 2000,
+        'n_target_steps' : 400,
+        'pattern_delta' : 200,
         'Dense_activation' : 'tanh',
         'LSTM_activation' : 'tanh',
-        'pattern_sensors' : [2], # Indices must be used rahter than placements
-        'target_sensor' : 2,
-        'learning_rate' : 0.0001, # 0.001 by default
-        'latent_dim' : [100,50] 
-    }
+        'learning_rate_schedule' : False,
+        'pattern_sensors' : ['90'], 
+        'target_sensor' : '90',
+        'learning_rate' : 0.01, # 0.001 by default
+        'latent_dim' : {'first' : 400, 'second' : 200, 'third' : 40}, 
+        'from' : 0,
+        'to' : -1
+    })
    
     if use == 'MLP':
         architecture = MLParchitecture
@@ -86,36 +109,37 @@ if __name__ == "__main__":
     early_stopping = False
     # Data
     damaged_element = 90#[10, 45, 68, 90, 112, 135, 170] Finns data på 45, 90 och 135
-       
-    # Training
-    epochs = 50
 
     healthy_series_stack = {
-    '100%' : fit_to_NN_ad_hoc(architecture['data_split'],
-                              'our_measurements/healthy/100%/',
-                              damaged_element,
-                              100)}
+        '100%' : fit_to_NN(
+            architecture['data_split'],
+            'our_measurements2/e90/100%/',
+            damaged_element,
+            100,
+            architecture
+        )
+    }
     data_split = {'train':0, 'validation':0, 'test':100}
 
-    '''
-    eval_series_stack = get_eval_series(data_split, damaged_element) 
+    eval_series_stack = get_eval_series(data_split, damaged_element, architecture, 'our_measurements2/') 
     #DataBatch.plot_series(healthy_series_stack['100%']['batch36'], plot_sensor = ['1/2'])
-    #DataBatch.plot_batch(healthy_series_stack['100%'])
-    DataBatch.plot_batch(eval_series_stack['90%'])
-    DataBatch.plot_batch(eval_series_stack['81%'])
-    DataBatch.plot_batch(eval_series_stack['71%'])
-    DataBatch.plot_batch(eval_series_stack['62%'])
-    DataBatch.plot_batch(eval_series_stack['52%'])
-    DataBatch.plot_batch(eval_series_stack['43%'])
-    DataBatch.plot_batch(eval_series_stack['33%'])
-    quit()
-    '''
+    #DataBatch.plot_frequency(eval_series_stack['52%']['frequency'], sensors)
+    #DataBatch.plot_batch(healthy_series_stack['100%']['data'], architecture)
+    #DataBatch.plot_batch(eval_series_stack['90%'])
+    #DataBatch.plot_batch(eval_series_stack['81%']['data'], architecture)
+    #DataBatch.plot_batch(eval_series_stack['71%'])
+    #DataBatch.plot_batch(eval_series_stack['62%'])
+    #DataBatch.plot_batch(eval_series_stack['52%'])
+    #DataBatch.plot_batch(eval_series_stack['43%'])
+    #DataBatch.plot_batch(eval_series_stack['33%'])
+    #quit()
+    
     machine_stack = {}
-    scoreStacks = {}
+    
 
     sensor_to_predict_list = [2] # Påverkar bara titel på plot
     for i in range(len(sensor_to_predict_list)):
-        name = 'J_'+use+'model3_2_'+str(sensor_to_predict_list[i])
+        name = 'J_'+use+architecture['name']+str(sensor_to_predict_list[i])
         try:
             f = open('models/'+name+'.json')
             machine_stack.update({
@@ -125,8 +149,6 @@ if __name__ == "__main__":
                      existing_model = True,
                      sensor_to_predict = sensor_to_predict_list[i])
             })
-            #NeuralNet.modify_model(machine_stack[name].model) # OBS!!!
-            #save_model(machine_stack[name].model, name+'mod') 
         except IOError:    
             machine_stack.update({
                 name : NeuralNet(architecture,
@@ -135,31 +157,28 @@ if __name__ == "__main__":
                      existing_model = False,
                      sensor_to_predict = sensor_to_predict_list[i])
             })
-            NeuralNet.train_measurements(machine_stack[name], healthy_series_stack['100%'], epochs)  
+            NeuralNet.train_measurements(machine_stack[name], healthy_series_stack['100%'])  
             save_model(machine_stack[name].model, name)
             plot_loss(machine_stack[name], name)
         
-        NeuralNet.evaluation(machine_stack[name], healthy_series_stack['100%'])
-        ''' 
-        eval_series_stack = get_eval_series(data_split, damaged_element)               
-        scoreStacks.update({sensor_to_predict_list[i] : {
-        100: NeuralNet.evaluation_batch(machine_stack[name], healthy_series_stack['100%']),
-        90 : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack['90%']),
-        81 : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack['81%']),
-        71 : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack['71%']),
-        62 : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack['62%']),
-        52 : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack['52%']),
-        43 : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack['43%']),
-        33 : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack['33%'])
-        }})
-        '''
-    #plot_performance5(scoreStacks)
+        NeuralNet.evaluation(machine_stack[name], healthy_series_stack['100%'])     
+        
+        score_stacks = {100: NeuralNet.evaluation_batch(machine_stack[name], healthy_series_stack['100%'])}
+        keys = list(eval_series_stack)
+        for j in range(len(keys)):
+            score_stacks.update({
+                keys[j] : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack[keys[j]])
+            })    
 
+    plot_performance(score_stacks, architecture)
+    #binary_prediction = get_binary_prediction(scoreStacks, architecture)
+    #plot_roc(prediction)
     ########## PREDICTIONS #############
+    
     prediction_manual = {
-        'series_to_predict' : 1,
-        'stack' : healthy_series_stack['100%']
+        'series_to_predict' : 14,
+        'stack' : eval_series_stack['52%']
     }
-    prediction = NeuralNet.prediction(machine_stack[name], prediction_manual)
-    print(prediction)
-    plot_prediction(prediction, prediction_manual)
+    #prediction = NeuralNet.prediction(machine_stack[name], prediction_manual)
+    #plot_prediction(prediction, prediction_manual, use)
+    
