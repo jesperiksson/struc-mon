@@ -239,8 +239,8 @@ def score_evaluation(score_Stack,sensor_ind):
     #print(confusion_crosstab)
     data=np.array(confusion_crosstab)
 
-    text=np.asarray([['True Negatives','False Negative'],
-                     ['False Positive','True Positives']])
+    text=np.asarray([['True Negatives','False Positives'],
+                     ['False Negatives','True Positives']])
     
     labels = (np.asarray(["{0}\n{1:.0f}".format(text,data) for text, data in zip(text.flatten(), data.flatten())])).reshape(2,2)
     sn.heatmap(confusion_crosstab, annot=labels, fmt='', cbar=False,cmap='binary')
