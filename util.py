@@ -190,15 +190,15 @@ def get_eval_series(data_split, damaged_element, a, path):
 
 
 
-def score_evaluation(score_stack,a,):
+def score_evaluation(score_Stack,sensor_ind):
     limit=0.90                          #difference between healthy/unhealthy
     dmg_cases=[90, 81, 71, 62, 52, 43, 33]
 
-    error1=0    #error type 1
-    error2=0    #error type 2
+    y_actual=[]    #error type 1
+    y_predicted=[]    #error type 2
     
     
-    scores=score_stack[sensor_ind[0]]
+    scores=score_Stack[sensor_ind[0]]
     score=scores[100]
     
     data_set=score['scores']
@@ -210,26 +210,41 @@ def score_evaluation(score_stack,a,):
     norm_test=stats.norm.cdf((data_set-mu)/sigma)
     
     for i in range(len(norm_test)):
-        if norm_test[i] > limit :
-           error1+= 1
+        y_actual.append(0)
+        test_var=norm_test[i]
+        if test_var > limit :
+            y_predicted.append(1)
+        else:
+            y_predicted.append(0)
                     
 
-    print('False positives ' + str(error1) + ' out of ' + str(len(norm_test)))
-
-    tests=0
     for k in range(len(dmg_cases)):
         X=scores[dmg_cases[k]]
         Xs=X['scores']
         norm_test_dmg=stats.norm.cdf((Xs-mu)/sigma)
         for j in range(len(norm_test_dmg)):
             test_var=norm_test_dmg[j]
-            tests+= 1
+            y_actual.append(1)
             if test_var < limit :
-                error2+= 1
-                print(dmg_cases[k])
+                y_predicted.append(0)
+            else:
+                y_predicted.append(1)
+    raw_data={'Actual': y_actual,
+          'Predicted': y_predicted
+          }
+    
+    df = pd.DataFrame(raw_data, columns=['Actual','Predicted'])
+    confusion_crosstab = pd.crosstab(df['Actual'], df['Predicted'],
+                                   rownames=['Actual'], colnames=['Predicted'])
+    #print(confusion_crosstab)
+    data=np.array(confusion_crosstab)
 
-    print('False negatives ' + str(error2) + ' out of ' + str(tests)) 
-
+    text=np.asarray([['True Negatives','False Negative'],
+                     ['False Positive','True Positives']])
+    
+    labels = (np.asarray(["{0}\n{1:.0f}".format(text,data) for text, data in zip(text.flatten(), data.flatten())])).reshape(2,2)
+    sn.heatmap(confusion_crosstab, annot=labels, fmt='', cbar=False,cmap='binary')
+    plt.show()
 def get_binary_prediction(score_stack, arch, limit = 0.9):
     phi = [None] * len(score_stack)
     prediction = [None] * len(score_stack)
