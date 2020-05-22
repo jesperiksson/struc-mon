@@ -38,6 +38,8 @@ def fit_to_NN(
             speeds[i] = int(file_list[i][0:5])
         elif len(file_list[i]) == 10:
             speeds[i] = int(file_list[i][0:6])
+        else: 
+            print('error')
     normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))
 
     n_files = int(len(file_list)/1)
@@ -107,6 +109,22 @@ def fit_to_NN(
 
     return preprocess_stack
 
+def get_eval_series(data_split, damaged_element, a, path):
+    #element_dir_list = os.listdir(path)
+    eval_series_stack = {}
+    #for i in range(len(element_dir_list)):
+    damage_dir_list = os.listdir(path)#+element_dir_list[i])
+    for j in range(len(damage_dir_list)):
+        eval_series_stack.update({
+            damage_dir_list[j] : fit_to_NN(
+                data_split,
+                path+'/'+damage_dir_list[j]+'/', #+element_dir_list[i]
+                damaged_element,
+                int(damage_dir_list[j][:-1]),
+                a)
+            })
+    return eval_series_stack
+
 def save_model(model,name):
     model_json = model.to_json()
     with open('models/'+name+'.json', 'w') as json_file:
@@ -126,27 +144,22 @@ def plot_loss(self, name):
     plt.savefig(fname = name+'_loss_plot.png')
     plt.show() 
 
-def plot_performance(scoreStacks, a):
-    score_keys = list(scoreStacks)
+def plot_performance(score_stack, a):
     cmap = plt.cm.rainbow
     norm = colors.Normalize(vmin=33,vmax=100)
-    for i in range(len(score_keys)): # Iterates over sensors
-        
-        scoreStack = scoreStacks[score_keys[i]]
-        plt.subplot(len(scoreStacks),1,i+1)
-        percentage_keys = list(scoreStack)
-        print(percentage_keys)
-        for j in range(len(percentage_keys)): # Iterates over percentages
-            plt.plot(scoreStack[percentage_keys[j]]['speeds'], 
-                     scoreStack[percentage_keys[j]]['scores'], 
-                     color=cmap(norm(percentage_keys[j])), 
-                     marker='o',
-                     linestyle='None')
-        plt.xlabel('Speed [km/h]')
-        plt.ylabel('Root Mean Square Error')
-        plt.title(sensors[score_keys[i]])
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        plt.colorbar(sm)
+    percentage_keys = list(score_stack)
+    
+    for i in range(len(percentage_keys)): # Iterates over percentages
+        for j in range(len(score_stack[percentage_keys[i]]['speeds'])):
+            plt.plot(score_stack[percentage_keys[i]]['speeds'][j], 
+                     score_stack[percentage_keys[i]]['scores'][j], 
+                     color=cmap(norm(score_stack[percentage_keys[i]]['damage_state'])), 
+                     marker='o')
+    plt.xlabel('Speed [km/h]')
+    plt.ylabel('Root Mean Square Error')
+    plt.title('At sensor' + str(a['target_sensor']))
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    plt.colorbar(sm)
     plt.legend()
     plt.show()
         
@@ -172,25 +185,9 @@ def plot_prediction(prediction, manual, net):
     plt.show()
     return
 
-def get_eval_series(data_split, damaged_element, a, path):
-    element_dir_list = os.listdir(path)
-    eval_series_stack = {}
-    for i in range(len(element_dir_list)):
-        damage_dir_list = os.listdir(path+element_dir_list[i])
-        for j in range(len(damage_dir_list)):
-            eval_series_stack.update({
-                damage_dir_list[j] : fit_to_NN(
-                    data_split,
-                    path+element_dir_list[i]+'/'+damage_dir_list[j]+'/',
-                    damaged_element,
-                    int(damage_dir_list[j][:2]),
-                    a)
-                })
-    return eval_series_stack
 
 
-
-def score_evaluation(score_stack,a,):
+def score_evaluation(score_stack,a):
     limit=0.90                          #difference between healthy/unhealthy
     dmg_cases=[90, 81, 71, 62, 52, 43, 33]
 

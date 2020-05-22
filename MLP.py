@@ -73,7 +73,7 @@ class NeuralNet():
             epochs=self.arch['epochs'], 
             verbose=1,
             callbacks=self.early_stopping, 
-            validation_data = generator(self,'validation', series_stack),
+            validation_data = generator(self,'validation', series_stack[self.arch['preprocess_type']]),
             validation_steps=5)
 
         self.model.summary()
@@ -83,9 +83,13 @@ class NeuralNet():
         return
 
     def evaluation(self, series_stack): # Model score (loss and RMSE)
-        self.score = self.model.evaluate_generator(generator(self, 'test', series_stack[self.arch['preprocess_type']]),
-                                                   steps = self.arch['data_split']['test']/100*len(series_stack),
-                                                   verbose = 1)
+        self.score = self.model.evaluate_generator(
+            generator(
+                self, 
+                'test', 
+                series_stack[self.arch['preprocess_type']]),
+            steps = self.arch['data_split']['test']/100*len(series_stack),
+            verbose = 1)
         print('Model score: ', self.model.metrics_names, self.score)
         return
 
@@ -94,16 +98,18 @@ class NeuralNet():
         speeds = []
         for i in range(len(series_stack[self.arch['preprocess_type']])):
             key = 'batch'+str(i%len(series_stack[self.arch['preprocess_type']]))
-            if series_stack[self.arch['preprocess_type']][key].category == 'test':
-                patterns, targets = data_sequence(self, series_stack, key)
-                speed = series_stack[key].speed
+            series = series_stack[self.arch['preprocess_type']][key]
+            if series.category == 'test':
+                patterns, targets = data_sequence(self, series)
+                speed = series.speed
                 score = self.model.test_on_batch(patterns, targets, reset_metrics=False)[1]#['loss', 'rmse']
+                speeds.extend([series.speed['km/h']])
                 scores.extend([score])
-                speeds.extend([speed])
                 #print(scores)
         results = {
             'scores' : scores[1:],
-            'speeds' : speeds[1:]
+            'speeds' : speeds[1:],
+            'damage_state' : series.damage_state
         }
         return results
 
@@ -139,7 +145,7 @@ class NeuralNet():
 
 
 # General Utilities
-def data_sequence(self, series_stack, key):
+def data_sequence(self, series):
     inputs = []
     outputs = []
     delta = self.arch['delta']
@@ -147,19 +153,19 @@ def data_sequence(self, series_stack, key):
     n_target_steps = self.arch['n_target_steps']
     n_sensors = len(self.arch['sensors'])
     for j in range(n_sensors):
-        n_series = int(series_stack[key].n_steps)-int(delta*n_pattern_steps)
+        n_series = int(series.n_steps)-int(delta*n_pattern_steps)
         patterns = np.empty([n_series,n_pattern_steps])
         targets = np.empty([n_series,n_target_steps])
         for k in range(n_series):                
             pattern_indices = np.arange(k,k+(delta)*n_pattern_steps,delta)
             target_indices = k+delta*n_pattern_steps
-            patterns[k,:] = series_stack[key].data[j][pattern_indices]
-            targets[k,:] = series_stack[key].data[j][target_indices]
+            patterns[k,:] = series.data[j][pattern_indices]
+            targets[k,:] = series.data[j][target_indices]
         inputs.append(patterns)
         outputs.append(targets)
-    patterns = {'speed_input' : np.repeat(np.array([series_stack[key].normalized_speed,]),n_series,axis=0)}
-    for i in range(n_sensors):
-        patterns.update({'accel_input_'+str(self.arch['sensors'][i]) : inputs[i]})
+    patterns = {'speed_input' : np.repeat(np.array([series.normalized_speed,]),n_series,axis=0)}
+    for i in range(len(self.arch['pattern_sensors'])):
+        patterns.update({'accel_input_'+self.arch['pattern_sensors'][i] : inputs[i]})
     targets = {'acceleration_output' : outputs[0]}
     return patterns, targets
 
@@ -169,7 +175,7 @@ def generator(self, task, series_stack):
         key = 'batch'+str(i%len(series_stack))
         i+=1
         if series_stack[key].category == task:
-            patterns, targets = data_sequence(self, series_stack, key)
+            patterns, targets = data_sequence(self, series_stack[key])
             yield(patterns, targets)
         else:
             pass
@@ -262,17 +268,17 @@ def set_up_model4(arch):
 
     accel_input_45 = Input(
         shape = (arch['n_pattern_steps'], ),
-        name='accel_input_'+str(arch['sensors'][0]))
+        name='accel_input_45')
 
     accel_input_90 = Input(
         shape = (arch['n_pattern_steps'], ),
-        name='accel_input_'+str(arch['sensors'][1]))
+        name='accel_input_90')
     
     accel_input_135 = Input(
         shape = (arch['n_pattern_steps'], ),
-        name='accel_input_'+str(arch['sensors'][2]))
+        name='accel_input_135')
 
-    merge = concatenate([accel_input_45, accel_input_90, accel_input_135])
+    accel_merge = concatenate([accel_input_45, accel_input_90, accel_input_135])
 
     hidden_1 = Dense(
         arch['n_units']['first'],
@@ -280,4 +286,6 @@ def set_up_model4(arch):
         use_bias=arch['bias'])(accel_merge)
     
     output = Dense(arch['n_target_steps'], activation='tanh', name='acceleration_output')(hidden_1)
+
+    model = Model(inputs = [accel_input_45, accel_input_90, accel_input_135], outputs = output)
     return model 

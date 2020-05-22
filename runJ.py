@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
     use = 'AELSTM'
-    name = '1'
+    name = '2'
     #####################
 
     sensors = {
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     sensors.update({
         'sensors' : sensor_dict
         })
-    MLParchitecture = sensors
+    MLParchitecture = sensors.copy()
     MLParchitecture.update({
         'n_units' : {'first' : 50, 'second' : 15},
         'bias' : True,
@@ -37,18 +37,19 @@ if __name__ == "__main__":
         'epochs' : 50,
         'patience' : 10,
         'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
+        'preprocess_type' : 'data',
         'delta' : 4, # Kan ändras
         'n_pattern_steps' : 20, # Kan ändras
         'batch_size' : 25,
         'n_target_steps' : 1,
         'Dense_activation' : 'tanh',
-        'pattern_sensors' : ['90'], # Indices must be used rahter than placements
+        'pattern_sensors' : ['45','90','135'], # Indices must be used rahter than placements
         'target_sensor' : 2,
         'from' : 0,
         'to' : -1
     })
 
-    LSTMarchitecture = sensors
+    LSTMarchitecture = sensors.copy()
     LSTMarchitecture.update({
         'n_units' : {'first' : 50, 'second' : 15},
         'bias' : True,
@@ -56,6 +57,7 @@ if __name__ == "__main__":
         'healthy' : [33, 43, 52 , 62, 71, 81, 90, 100],
         'epochs' : 10,
         'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
+        'preprocess_type' : 'data',
         'delta' : 1, # Kan ändras
         'n_pattern_steps' : 150, # Kan ändras
         'batch_size' : 25,
@@ -70,7 +72,7 @@ if __name__ == "__main__":
         'to' : -1
     })
 
-    AELSTMarchitecture = sensors
+    AELSTMarchitecture = sensors.copy()
     AELSTMarchitecture.update({
         'n_units' : {'first': 800, 'second': 200, 'third' : 40, 'fourth': 20},
         'bias' : True,
@@ -82,9 +84,9 @@ if __name__ == "__main__":
         'preprocess_type' : 'data',
         'delta' : 1, # Kan ändras
         'n_pattern_steps' : 400, # Kan ändras
-        'batch_size' : 25,
+        'batch_size' : 16,
         'n_target_steps' : 400,
-        'pattern_delta' : 200,
+        'pattern_delta' : 50,
         'Dense_activation' : 'tanh',
         'LSTM_activation' : 'tanh',
         'learning_rate_schedule' : False,
@@ -113,7 +115,7 @@ if __name__ == "__main__":
     healthy_series_stack = {
         '100%' : fit_to_NN(
             architecture['data_split'],
-            'our_measurements2/e90/100%/',
+            'our_measurements/healthy/100%/', #2/e90/100%/',
             damaged_element,
             100,
             architecture
@@ -121,7 +123,7 @@ if __name__ == "__main__":
     }
     data_split = {'train':0, 'validation':0, 'test':100}
 
-    eval_series_stack = get_eval_series(data_split, damaged_element, architecture, 'our_measurements2/') 
+    eval_series_stack = get_eval_series(data_split, damaged_element, architecture, 'our_measurements/e90/') 
     #DataBatch.plot_series(healthy_series_stack['100%']['batch36'], plot_sensor = ['1/2'])
     #DataBatch.plot_frequency(eval_series_stack['52%']['frequency'], sensors)
     #DataBatch.plot_batch(healthy_series_stack['100%']['data'], architecture)
@@ -161,16 +163,16 @@ if __name__ == "__main__":
             save_model(machine_stack[name].model, name)
             plot_loss(machine_stack[name], name)
         
-        NeuralNet.evaluation(machine_stack[name], healthy_series_stack['100%'])     
+        #NeuralNet.evaluation(machine_stack[name], healthy_series_stack['100%'])     
         
-        score_stacks = {100: NeuralNet.evaluation_batch(machine_stack[name], healthy_series_stack['100%'])}
+        score_stack = {}
         keys = list(eval_series_stack)
         for j in range(len(keys)):
-            score_stacks.update({
+            score_stack.update({
                 keys[j] : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack[keys[j]])
             })    
 
-    plot_performance(score_stacks, architecture)
+    plot_performance(score_stack, architecture)
     #binary_prediction = get_binary_prediction(scoreStacks, architecture)
     #plot_roc(prediction)
     ########## PREDICTIONS #############

@@ -15,7 +15,7 @@ class DataBatch():
         self.batch_num = batch_num
         self.category = category
         self.n_steps = np.shape(self.data)[1]
-        self.speed = {'km/h' : speed, 'm/s' : (speed*3.6/10)},
+        self.speed = {'km/h' : speed, 'm/s' : (speed*3.6/10)}
         self.normalized_speed = normalized_speed
         self.damage_state = damage_state
         self.timestep = 0.001

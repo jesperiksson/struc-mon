@@ -138,12 +138,13 @@ class NeuralNet():
                     batch_size = self.arch['batch_size'],
                     verbose = 1,
                     return_dict = True)
-                speeds.extend([series.speed])
-                scores.extend([score])
+                speeds.extend([series.speed['km/h']])
+                scores.extend([score['rmse']])
         results = {
             'scores' : scores[1:],
             'speeds' : speeds[1:],
-            'steps' : self.arch['n_target_steps']
+            'steps' : len(speeds[1:]),
+            'damage_state' : series.damage_state
         }
 
         return results
