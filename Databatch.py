@@ -20,9 +20,8 @@ class DataBatch():
         self.damage_state = damage_state
         self.timestep = 0.001
         self.timesteps = np.arange(0, self.n_steps, 1)
-        self.indices = [None]*self.sensors
         self.steps = [None]*self.sensors
-        self.acc = [None]*self.sensors
+        self.indices = [None]*self.sensors
         self.delta = [None]*self.sensors
         for i in range(self.sensors):
             self.steps[i] = self.n_steps
@@ -66,7 +65,7 @@ class extrema(DataBatch):
                 axis = 0, 
                 order = 1)
             self.indices[i] = indices[0]
-            self.acc[i] = self.data[i][self.indices[i]]
+            self.extrema[i] = self.data[i][self.indices[i]]
             self.steps[i] = np.shape(self.indices[i])[0]
             delta = np.diff(self.indices[i])
             self.delta[i] = delta/max(delta)
@@ -74,6 +73,7 @@ class extrema(DataBatch):
 class peaks(DataBatch):
     def __init__(self, data, batch_num, speed, normalized_speed, element, category = 'train', damage_state = 1):  
         super().__init__(data, batch_num, speed, normalized_speed, element)
+        self.peaks = [None]*self.sensors
         for i in range(self.sensors):
             self.indices[i], properties = sp.signal.find_peaks(
                 self.data[i], 
@@ -82,11 +82,13 @@ class peaks(DataBatch):
                 distance = 2,
                 prominence = None,
                 width = None)
-            self.acc[i] = self.data[i][self.indices[i]]
-            self.steps[i] = np.shape(self.peaks[i])[0]
+            self.peaks[i] = self.data[i][self.indices[i]]
+            
             delta = np.diff(self.indices[i])
             self.delta[i] = delta/max(delta)
-            #self.delta[i].extend(0)
+        self.n_steps = np.shape(self.peaks[0])[0] # overwrite data
+        self.timesteps = self.indices
+        self.data = self.peaks 
             
 class frequencySpectrum(DataBatch):
     def __init__(self, data, batch_num, speed, normalized_speed, element, category = 'train', damage_state = 1):  

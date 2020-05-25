@@ -19,26 +19,26 @@ class NeuralNet():
                  name,
                  series_stack,
                  early_stopping = True,
-                 existing_model = False,
-                 sensor_to_predict = 0):
+                 existing_model = False):
 
         self.arch = arch
         self.name = name
-        self.sensor_to_predict = sensor_to_predict
+        self.sensor_to_predict = arch['sensors'][arch['target_sensor']]
         if early_stopping == True:
-            self.early_stopping = [keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                 min_delta=0, 
-                                                 patience=arch['patience'], # Pröva upp till typ 8
-                                                 verbose=1,
-                                                 mode='auto',
-                                                 restore_best_weights=True)]
+            self.early_stopping = [keras.callbacks.EarlyStopping(
+                monitor='val_loss',
+                min_delta=0, 
+                patience=arch['patience'], # Pröva upp till typ 8
+                verbose=1,
+                mode='auto',
+                restore_best_weights=True)]
         else:
             self.early_stopping = None
         self.loss='mse'
         self.existing_model = existing_model
         n_sensors = len(arch['sensors'])         
         if self.existing_model == False:
-            model = set_up_model4(arch)
+            model = set_up_model5(arch)
 
         elif self.existing_model == True:
             model_path = 'models/'+self.name+'.json'
@@ -52,7 +52,13 @@ class NeuralNet():
             print('\n Loaded model: ', name)
         else:
             raise Error
-        model.compile(optimizer='adam', loss='mse', metrics=[rmse])
+        optimizer = keras.optimizers.Adam(
+            learning_rate = arch['learning_rate'],
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-07,
+            amsgrad=False)
+        model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
         plot_model(model, to_file='name.png')
         model.summary()
         self.model = model
@@ -68,7 +74,10 @@ class NeuralNet():
         n_series  [x_n_series0 = a_n_series...]
         '''    
         self.history = self.model.fit_generator(
-            generator(self, 'train', series_stack[self.arch['preprocess_type']]), 
+            generator(
+                self, 
+                'train', 
+                series_stack[self.arch['preprocess_type']]), 
             steps_per_epoch=16, 
             epochs=self.arch['epochs'], 
             verbose=1,
@@ -142,7 +151,48 @@ class NeuralNet():
             print('\n Not a test batch \n')
         return prediction
 
-
+    def forecast(machines, manual):
+            # Machines
+            machine_keys = list(machines.keys())
+            # Shortcuts
+            machine = machines[machine_keys[0]]
+            delta = machine.arch['delta']
+            n_pattern_steps = machine.arch['n_pattern_steps']
+            n_target_steps = machine.arch['n_target_steps']
+            # Series
+            key = 'batch'+str(manual['series_to_predict']%len(manual['stack'][machine.arch['preprocess_type']]))
+            series = manual['stack'][machine.arch['preprocess_type']][key]
+            n_series = int(manual['stack'][machine.arch['preprocess_type']][key].n_steps)-int(n_pattern_steps)
+            # Initial
+            initial_indices = np.arange(0,delta*n_pattern_steps,delta)
+            patterns = {}
+            print(n_series, np.shape(series.data))
+            for i in range(len(machine.arch['pattern_sensors'])):
+                patterns.update({ 
+                'accel_input_'+machine.arch['pattern_sensors'][i] : 
+                    np.reshape(
+                        series.data[machine.sensor_to_predict][initial_indices], 
+                        [1,machine.arch['n_pattern_steps']]
+                    )
+                })
+            forecasts = patterns.copy()
+            for i in range(n_series):
+                old_patterns = patterns.copy()
+                for j in range(len(machine_keys)):
+                    machine = machines[machine_keys[j]] # Pick machine
+                    prediction = machine.model.predict(old_patterns, verbose=0) # Make prediction with machine
+                    pattern = patterns['accel_input_'+machine.arch['pattern_sensors'][j]] # Extract pattern
+                    pattern = np.delete(pattern,0,1) # Remove first enrty
+                    pattern = np.hstack([pattern,prediction]) # Add prediciton last
+                    patterns.update({
+                        'accel_input_'+machine.arch['pattern_sensors'][j] : pattern
+                        }) # Update patterns dicr
+                    forecast = forecasts['accel_input_'+machine.arch['pattern_sensors'][j]] #Extract forecast
+                    forecast = np.hstack([forecast,prediction]) # Update forecast
+                    forecasts.update({
+                        'accel_input_'+machine.arch['pattern_sensors'][j] : forecast
+                        }) # Update forecasts dict
+            return forecasts
 
 # General Utilities
 def data_sequence(self, series):
@@ -163,6 +213,7 @@ def data_sequence(self, series):
             targets[k,:] = series.data[j][target_indices]
         inputs.append(patterns)
         outputs.append(targets)
+    print(np.shape(inputs))
     patterns = {'speed_input' : np.repeat(np.array([series.normalized_speed,]),n_series,axis=0)}
     for i in range(len(self.arch['pattern_sensors'])):
         patterns.update({'accel_input_'+self.arch['pattern_sensors'][i] : inputs[i]})
@@ -184,70 +235,7 @@ def generator(self, task, series_stack):
 def rmse(true, prediction):
     return backend.sqrt(backend.mean(backend.square(prediction - true), axis=-1))
 
-####################################################################################################
-def set_up_model1(arch):
 
-    accel_input_half = Input(shape=(arch['n_pattern_steps'], ), name='accel_input_half')   
-    accel_input_quarter = Input(shape=(arch['n_pattern_steps'], ), name='accel_input_quarter')
-    accel_input_third = Input(shape=(arch['n_pattern_steps'], ), name='accel_input_third')
-    speed_input = Input(shape=(1,), name='speed_input')
-
-    s_half = Dense(arch['n_units'][0],
-                                activation = arch['MLPactivation'],
-                                use_bias=arch['bias'])(accel_input_half)
-    s_quarter = Dense(arch['n_units'][0], 
-                                    activation = arch['MLPactivation'],
-                                    use_bias=arch['bias'])(accel_input_quarter)
-    s_third = Dense(arch['n_units'][0], 
-                                    activation = arch['MLPactivation'],
-                                    use_bias=arch['bias'])(accel_input_third)
-
-    accels = concatenate([s_half, s_quarter, s_third])
-    x = Dense(arch['n_units'][1])(accels)
-    x = Dense(arch['n_target_steps'], activation='tanh')(x)
-    speed = Dense(arch['n_units'][1], activation = 'sigmoid')(speed_input)
-    speed_accel = concatenate([x,speed])
-    output = Dense(arch['n_target_steps'], activation='tanh', name='acceleration_output')(speed_accel)  
-
-
-    model = Model(inputs = [accel_input_half, accel_input_quarter, accel_input_third, speed_input], 
-                  outputs = output)             
-    return model
-####################################################################################################
-def set_up_model2(arch):
-
-    accel_input_10 = Input(shape=(arch['n_pattern_steps'], ), name='accel_input_10')   
-    accel_input_45 = Input(shape=(arch['n_pattern_steps'], ), name='accel_input_45')
-    accel_input_90 = Input(shape=(arch['n_pattern_steps'], ), name='accel_input_90')
-    accel_input_135 = Input(shape=(arch['n_pattern_steps'], ), name='accel_input_135')
-    accel_input_170 = Input(shape=(arch['n_pattern_steps'], ), name='accel_input_170')
-    speed_input = Input(shape=(1,), name='speed_input')
-
-    s10 = Dense(arch['n_units'][0], activation = arch['MLPactivation'],use_bias=True)(accel_input_10)
-    s45 = Dense(arch['n_units'][0], activation = arch['MLPactivation'],use_bias=True)(accel_input_45)
-    s90 = Dense(arch['n_units'][0], activation = arch['MLPactivation'],use_bias=True)(accel_input_90)
-    s135 = Dense(arch['n_units'][0], activation = arch['MLPactivation'],use_bias=True)(accel_input_135)
-    s170 = Dense(arch['n_units'][0], activation = arch['MLPactivation'],use_bias=True)(accel_input_170)
-
-    accels = concatenate([s10, s45, s90, s135, s170])
-    x = Dense(arch['n_units'][1])(accels)
-    
-    x = concatenate([accels, speed_input])
-    x = Dense(arch['n_units'][1])(x)
-
-    output = Dense(arch['n_target_steps'], activation='tanh', name='acceleration_output')(x)  
-
-
-    model = Model(inputs=(  accel_input_10,
-                            accel_input_45,
-                            accel_input_90,
-                            accel_input_135,
-                            accel_input_170,
-                            speed_input), 
-            outputs = output)
-    model.compile(optimizer='adam', loss='mse', metrics=['mse','acc'])
-    model.summary()             
-    return model
 
 ####################################################################################################
 def set_up_model3(arch):
@@ -289,3 +277,21 @@ def set_up_model4(arch):
 
     model = Model(inputs = [accel_input_45, accel_input_90, accel_input_135], outputs = output)
     return model 
+####################################################################################################
+def set_up_model5(arch):
+    
+    accel_input = Input(
+        shape=(arch['n_pattern_steps'], ),
+        name='accel_input_90')
+
+    hidden_1 = Dense(arch['n_units']['first'],
+                     activation = arch['Dense_activation'],
+                     use_bias=arch['bias'])(accel_input)
+
+    hidden_2 = Dense(arch['n_units']['second'],
+                     activation = arch['Dense_activation'],
+                     use_bias=arch['bias'])(hidden_1)
+
+    output = Dense(arch['n_target_steps'], activation='tanh', name='acceleration_output')(hidden_2) 
+    model = Model(inputs = accel_input, outputs = output)
+    return model

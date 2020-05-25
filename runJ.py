@@ -12,8 +12,8 @@ from util import *
 if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
-    use = 'AELSTM'
-    name = '2'
+    use = 'MLP'
+    name = '6'
     #####################
 
     sensors = {
@@ -37,14 +37,16 @@ if __name__ == "__main__":
         'epochs' : 50,
         'patience' : 10,
         'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
-        'preprocess_type' : 'data',
-        'delta' : 4, # Kan ändras
+        'preprocess_type' : 'peaks',
+        'delta' : 2, # Kan ändras
         'n_pattern_steps' : 20, # Kan ändras
         'batch_size' : 25,
         'n_target_steps' : 1,
         'Dense_activation' : 'tanh',
-        'pattern_sensors' : ['45','90','135'], # Indices must be used rahter than placements
-        'target_sensor' : 2,
+        'pattern_sensors' : ['90'], # Indices must be used rahter than placements
+        'target_sensor' : '90',
+        'target_sensors' : ['90'],
+        'learning_rate' : 0.001, # 0.001 by default
         'from' : 0,
         'to' : -1
     })
@@ -65,8 +67,9 @@ if __name__ == "__main__":
         'pattern_delta' : 100,
         'Dense_activation' : 'tanh',
         'LSTM_activation' : 'tanh',
-        'pattern_sensors' : ('90'), 
+        'pattern_sensors' : ('90'),
         'target_sensor' : '90',
+        'target_sensors' : ['45','90','135'],
         'learning_rate' : 0.0001, # 0.001 by default
         'from' : 0,
         'to' : -1
@@ -92,6 +95,7 @@ if __name__ == "__main__":
         'learning_rate_schedule' : False,
         'pattern_sensors' : ['90'], 
         'target_sensor' : '90',
+        'target_sensors' : ['90'],
         'learning_rate' : 0.01, # 0.001 by default
         'latent_dim' : {'first' : 400, 'second' : 200, 'third' : 40}, 
         'from' : 0,
@@ -138,26 +142,23 @@ if __name__ == "__main__":
     
     machine_stack = {}
     
-
-    sensor_to_predict_list = [2] # Påverkar bara titel på plot
-    for i in range(len(sensor_to_predict_list)):
-        name = 'J_'+use+architecture['name']+str(sensor_to_predict_list[i])
+    for i in range(len(architecture['target_sensors'])):
+        architecture['target_sensor'] = architecture['target_sensors'][i]
+        name = 'J_'+use+architecture['name']+architecture['target_sensor']
         try:
             f = open('models/'+name+'.json')
             machine_stack.update({
                 name : NeuralNet(architecture,
                      name,
                      early_stopping,
-                     existing_model = True,
-                     sensor_to_predict = sensor_to_predict_list[i])
+                     existing_model = True)
             })
         except IOError:    
             machine_stack.update({
                 name : NeuralNet(architecture,
                      name,
                      early_stopping,
-                     existing_model = False,
-                     sensor_to_predict = sensor_to_predict_list[i])
+                     existing_model = False)
             })
             NeuralNet.train_measurements(machine_stack[name], healthy_series_stack['100%'])  
             save_model(machine_stack[name].model, name)
@@ -167,20 +168,23 @@ if __name__ == "__main__":
         
         score_stack = {}
         keys = list(eval_series_stack)
+        '''
         for j in range(len(keys)):
             score_stack.update({
                 keys[j] : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack[keys[j]])
             })    
-
-    plot_performance(score_stack, architecture)
+        '''
+    #plot_performance(score_stack, architecture)
     #binary_prediction = get_binary_prediction(scoreStacks, architecture)
     #plot_roc(prediction)
     ########## PREDICTIONS #############
     
     prediction_manual = {
-        'series_to_predict' : 14,
+        'series_to_predict' : 3,
         'stack' : eval_series_stack['52%']
     }
+    forecast = NeuralNet.forecast(machine_stack, prediction_manual)
+    plot_forecast(forecast, prediction_manual, architecture)
     #prediction = NeuralNet.prediction(machine_stack[name], prediction_manual)
     #plot_prediction(prediction, prediction_manual, use)
     

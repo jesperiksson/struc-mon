@@ -17,13 +17,13 @@ class NeuralNet():
                  arch,
                  name,
                  early_stopping = True,
-                 existing_model = False,
-                 sensor_to_predict = 0):
+                 existing_model = False):
 
         self.arch = arch
         self.name = name
         self.target_sensor = self.arch['sensors'][self.arch['target_sensor']]
         self.pattern_sensors = self.arch['sensors'][self.arch['pattern_sensors']]
+        self.sensor_to_predict = arch['sensors'][arch['target_sensor']]
         if early_stopping == True:
             self.early_stopping = [keras.callbacks.EarlyStopping(monitor='loss',
                                                  min_delta=0, 

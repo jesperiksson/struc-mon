@@ -18,9 +18,9 @@ def fit_to_NN(
         path, 
         damaged_element, 
         healthy_percentage, 
-        arch, 
-        types = ('data')):
+        arch):
     
+    types = arch['preprocess_type']
     paths = {}
 
     for i in range(len(arch['active_sensors'])):
@@ -247,4 +247,39 @@ def plot_roc(prediction):
         )
     plt.plot(false_positive_rate, true_positive_rate)
     plt.show()
-                  
+
+def plot_forecast(forecast, manual, a):
+    key = 'batch'+str(manual['series_to_predict'])
+    forecast_keys = list(forecast.keys())
+    for i in range(len(forecast_keys)): 
+        plt.subplot(len(forecast_keys),1,i+1)
+        print(np.shape(forecast[forecast_keys[i]][0]), np.shape(np.arange(0,np.shape(forecast[forecast_keys[i]])[1], 1)))
+        plt.plot(
+            #snp.arange(0,np.shape(forecast[forecast_keys[i]])[1], 1),
+            manual['stack'][a['preprocess_type']][key].timesteps[0], 
+            forecast[forecast_keys[i]][0], 
+            'b', 
+            linewidth=0.4)
+        plt.plot(
+            manual['stack'][a['preprocess_type']][key].timesteps[0], 
+            manual['stack'][a['preprocess_type']][key].data[i], 
+            'r', 
+            linewidth=0.4)
+    plt.show() 
+                 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
