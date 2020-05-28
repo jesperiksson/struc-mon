@@ -1,53 +1,24 @@
 # struc-mon
-Toolbox for analyzing bridges using ANN and other methods
+Toolbox for analyzing bridges using ANN and other methods. 
+This project was initially developed for a Master's thesis on the topic of Structural Health Monitoring.
 
-- Abstract functions of the toolbox:
-    - Abstract sub-functions:
-        - Methods:
-            - Implemented via:
-                - Implemented with:
-- Data processing
-    - Data normalisation
-    - Data cleansing
-    - Data compression
-        - Autoassociative neural nets
-            - Autoencoder
-                - Tensorflow
-    - Data fusion
+The program is written with the intent of being highly modular in order to make it easy to implement new methods.
 
-- Feature extraction
-    - Frequencies
-    - Axelerations
-    (- Mode shapes)
+Required Libraries:
+Keras
+Matplotlib
+NumPy
+SciPy
+sklearn
+TensorFlow 2.0
 
- - Novelty detection
-    - Outlier analysis 
-        - Statistical methods
-            - Mahalanobis distance
-            - Kolmogorov-Smirnov distance
-        - Artificial Neural Nets with supervised learning
-            - Time-series MLP
-                - Tensorflow
-        - Artificial Neural Nets with unsupervised learning
-            - Time-series MLP (semiunsupervised)
-        - Threshold methods
-            - Extreme value statistic tests
-    - Structural signature
-        - Topology maps for ambient response
-            - Self Organizing Maps (SOMs)
-                - Tensorflow
+The program is executed from the run.py file. 
 
-- Classification 
-    - Decision boundary generation
-        - SVM clustering (kernels)
-            - Competitively trained RBFs (Gaussian kernels)
-                - Tensorflow
-        - Bipolar MLP
-            - Backprop training 
-                - Tensorflow
-    - Pattern Recognition
-        - 1D CNN
-            - Supervised training, internal representations
+Data is imported and made into instances of the Databatch class. The Databatch class has several sub-classes,
+where each subclass manipulates the data in a certain way. The Peaks subclass chooses the peak signals and 
+their indices for instance. 
 
-- Result evalutation
-    - 
+Models (neural nets) are objects belonging to the NeuralNet class which has sublclasses for each type of neural net.
+Different models within each type of neural net are defined by their respective function within said NeuralNet 
+sub-class. The Subclasses has their own methods for training, evaluation, prediction and forecasting. 
+
