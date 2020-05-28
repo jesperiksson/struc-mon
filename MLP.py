@@ -2,9 +2,9 @@
 from util import *
 from Databatch import * 
 # Modules
+import time
 import tensorflow as tf
 import keras
-import os
 from keras.models import Sequential, Model, model_from_json
 from keras.layers import Input, Dense, concatenate, Activation, Flatten 
 from keras import metrics, callbacks, regularizers
@@ -17,14 +17,12 @@ class NeuralNet():
     def __init__(self,
                  arch,
                  name,
-                 series_stack,
-                 early_stopping = True,
                  existing_model = False):
 
         self.arch = arch
         self.name = name
         self.sensor_to_predict = arch['sensors'][arch['target_sensor']]
-        if early_stopping == True:
+        if arch['early_stopping'] == True:
             self.early_stopping = [keras.callbacks.EarlyStopping(
                 monitor='val_loss',
                 min_delta=0, 
@@ -64,7 +62,7 @@ class NeuralNet():
         self.model = model
         self.score = None
 
-    def train_measurements(self, series_stack):
+    def train(self, series_stack):
         '''
         Reshapes the data to the form 
         0 [x_00 = a_1, x_01 = a_1+delta, ..., x_0(n_pattern_steps) = a_(delta*n_pattern_steps)]
@@ -72,8 +70,9 @@ class NeuralNet():
         .
         .
         n_series  [x_n_series0 = a_n_series...]
-        '''    
-        self.history = self.model.fit_generator(
+        '''   
+        tic = time.time() 
+        self.history = self.model.fit(
             generator(
                 self, 
                 'train', 
@@ -89,6 +88,8 @@ class NeuralNet():
         self.loss = self.history.history['loss']
         self.val_loss = self.history.history['val_loss']
         self.used_epochs = len(self.val_loss)
+        self.toc = np.round(time.time()-t,1)
+        print('Elapsed time: ', self.toc)
         return
 
     def evaluation(self, series_stack): # Model score (loss and RMSE)

@@ -87,7 +87,7 @@ class peaks(DataBatch):
             delta = np.diff(self.indices[i])
             self.delta[i] = delta/max(delta)
         self.n_steps = np.shape(self.peaks[0])[0] # overwrite data
-        self.timesteps = self.indices
+        self.timesteps = self.indices[0]
         self.data = self.peaks 
             
 class frequencySpectrum(DataBatch):

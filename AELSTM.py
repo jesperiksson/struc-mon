@@ -2,6 +2,7 @@
 from util import *
 from Databatch import * 
 # Modules
+import time
 import tensorflow as tf
 from tensorflow import keras
 import keract
@@ -18,7 +19,6 @@ class NeuralNet():
     def __init__(self,
                  arch,
                  name,
-                 early_stopping = True,
                  existing_model = False):
 
         self.arch = arch
@@ -81,10 +81,11 @@ class NeuralNet():
         self.score = None
         self.loss = [None]
 
-    def train_measurements(self, series_stack, epochs = 1):
+    def train(self, series_stack, epochs = 1):
         self.history = [None]
         self.loss = [None]
         self.val_loss = [None]
+        tic = time.time() 
         for i in range(len(series_stack)):
             series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
             if series.category == 'train' or series.category == 'validation':
@@ -106,22 +107,26 @@ class NeuralNet():
                     shuffle = True)
                 self.history.append(history)
                 self.loss.extend(history.history['loss'])
-                self.val_loss.extend(history.history['val_loss'])  
+                self.val_loss.extend(history.history['val_loss'])
+                if self.arch['save_periodically'] == True and i % self.arch['save_interval'] == 0:
+                    save_model(self.model,self.name)                    
         self.model.summary()
+        self.toc = np.round(time.time()-t,1)
+        print('Elapsed time: ', self.toc)
         #self.used_epochs = len(self.loss)   
         return
 
     def evaluation(self, series_stack):
         for i in range(len(series_stack)):
             series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
-            if series.category == 'test':
-                X, Y = generator(self, series)
-                self.score = self.model.evaluate(
-                    x = X,
-                    y = Y,
-                    batch_size = self.arch['batch_size'],
-                    verbose = 1,
-                    return_dict = True)
+            steps = get_steps(self, series)
+            if series.category == 'train':
+                self.score = self.model.evaluate_generator(
+                    generator_peak(
+                        self, 
+                        series),
+                    steps = steps,
+                    verbose = 1)
         print('Model score: ', self.model.metrics_names, self.score)
         return
 
@@ -146,7 +151,6 @@ class NeuralNet():
             'steps' : len(speeds[1:]),
             'damage_state' : series.damage_state
         }
-
         return results
 
     def prediction(self, manual):

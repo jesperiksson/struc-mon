@@ -7,6 +7,7 @@ from sklearn.metrics import roc_curve
 import os
 import h5py
 import random
+import pandas as pd
 
 # Classes
 from Databatch import *
@@ -16,7 +17,6 @@ from Databatch import *
 def fit_to_NN(
         data_split, 
         path, 
-        damaged_element, 
         healthy_percentage, 
         arch):
     
@@ -109,7 +109,7 @@ def fit_to_NN(
 
     return preprocess_stack
 
-def get_eval_series(data_split, damaged_element, a, path):
+def get_eval_series(data_split, a, path):
     #element_dir_list = os.listdir(path)
     eval_series_stack = {}
     #for i in range(len(element_dir_list)):
@@ -119,7 +119,6 @@ def get_eval_series(data_split, damaged_element, a, path):
             damage_dir_list[j] : fit_to_NN(
                 data_split,
                 path+'/'+damage_dir_list[j]+'/', #+element_dir_list[i]
-                damaged_element,
                 int(damage_dir_list[j][:-1]),
                 a)
             })
@@ -162,29 +161,6 @@ def plot_performance(score_stack, a):
     plt.colorbar(sm)
     plt.legend()
     plt.show()
-        
-def plot_prediction(prediction, manual, net):
-    key = 'batch'+str(manual['series_to_predict']%len(manual['stack']))
-    series = manual['stack'][key]
-    plt.figure()
-    if net == 'LSTM': 
-        for i in range(prediction['steps']):
-            plt.plot(prediction['indices'][i,:], prediction['prediction'][i,:], 'b', linewidth=0.4)
-            plt.plot(prediction['indices'][i,:], prediction['hindsight'][i,:], 'r', linewidth=0.4)    
-        plt.plot(series.timesteps, series.data[prediction['sensor']], 'g', linewidth=0.05)
-        plt.legend(['Prediction','Data','Signals'])
-    elif net == 'AELSTM':
-        number = 3
-        plt.plot(prediction['steps'], prediction['prediction'][number,:])
-        plt.plot(prediction['steps'], prediction['hindsight'][number,:])
-    elif net == 'MLP':
-        plt.plot(prediction['indices'], prediction['prediction'], 'b', linewidth=0.4)
-        plt.plot(prediction['indices'], prediction['hindsight'], 'r', linewidth=0.4) 
-        plt.legend(['Prediction', 'Signals'])   
-    
-    plt.show()
-    return
-
 
 def score_evaluation(score_stack,a):
 
@@ -263,20 +239,40 @@ def plot_roc(prediction):
     plt.plot(false_positive_rate, true_positive_rate)
     plt.show()
 
+def plot_prediction(prediction, manual, net):
+    #key = 'batch'+str(manual['series_to_predict']%len(manual['stack']))
+    #series = manual['stack'][key]
+    plt.figure()
+    
+    if net == 'LSTM': 
+        plt.plot(prediction['indices'], prediction['prediction'], 'b', linewidth=0.4)
+        plt.plot(prediction['indices'], prediction['hindsight'], 'r', linewidth=0.4) 
+        plt.legend(['Prediction', 'Signals'])   
+    
+    elif net == 'AELSTM':
+        number = 3
+        plt.plot(prediction['steps'], prediction['prediction'][number,:])
+        plt.plot(prediction['steps'], prediction['hindsight'][number,:])
+    elif net == 'MLP':
+        plt.plot(prediction['indices'], prediction['prediction'], 'b', linewidth=0.4)
+        plt.plot(prediction['indices'], prediction['hindsight'], 'r', linewidth=0.4) 
+        plt.legend(['Prediction', 'Signals'])   
+    
+    plt.show()
+    return
+
 def plot_forecast(forecast, manual, a):
     key = 'batch'+str(manual['series_to_predict'])
     forecast_keys = list(forecast.keys())
     for i in range(len(forecast_keys)): 
         plt.subplot(len(forecast_keys),1,i+1)
-        print(np.shape(forecast[forecast_keys[i]][0]), np.shape(np.arange(0,np.shape(forecast[forecast_keys[i]])[1], 1)))
         plt.plot(
-            #snp.arange(0,np.shape(forecast[forecast_keys[i]])[1], 1),
-            manual['stack'][a['preprocess_type']][key].timesteps[0], 
+            manual['stack'][a['preprocess_type']][key].timesteps, 
             forecast[forecast_keys[i]][0], 
             'b', 
             linewidth=0.4)
         plt.plot(
-            manual['stack'][a['preprocess_type']][key].timesteps[0], 
+            manual['stack'][a['preprocess_type']][key].timesteps, 
             manual['stack'][a['preprocess_type']][key].data[i], 
             'r', 
             linewidth=0.4)

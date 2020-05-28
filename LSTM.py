@@ -2,42 +2,49 @@
 from util import *
 from Databatch import * 
 # Modules
+import time
 import tensorflow as tf
-import keras
-from keras.models import Sequential, Model, model_from_json
-from keras.layers import Input, Dense, LSTM, concatenate, Activation, Reshape
-from keras import metrics, callbacks, regularizers
-from keras.utils import plot_model
-from keras import backend
-#from matplotlib import pyplot
-from keras.optimizers import RMSprop
+from tensorflow import keras
+from tensorflow.python.keras.models import Sequential, Model, model_from_json
+from tensorflow.python.keras.layers import Input, Dense, LSTM, concatenate, Activation, Reshape, Bidirectional
+from tensorflow.python.keras.callbacks import EarlyStopping, LearningRateScheduler
+from tensorflow.python.keras import metrics, regularizers
+from tensorflow.keras.utils import plot_model
+from tensorflow.python.keras import backend
+from tensorflow.python.keras.optimizers import RMSprop
 
 class NeuralNet():
     def __init__(self,
                  arch,
                  name,
-                 early_stopping = True,
                  existing_model = False):
 
         self.arch = arch
         self.name = name
         self.target_sensor = self.arch['sensors'][self.arch['target_sensor']]
-        self.pattern_sensors = self.arch['sensors'][self.arch['pattern_sensors']]
+        self.pattern_sensors = self.arch['sensors'][self.arch['pattern_sensors'][0]]
         self.sensor_to_predict = arch['sensors'][arch['target_sensor']]
-        if early_stopping == True:
-            self.early_stopping = [keras.callbacks.EarlyStopping(monitor='loss',
-                                                 min_delta=0, 
-                                                 patience=1,
-                                                 verbose=1,
-                                                 mode='auto',
-                                                 restore_best_weights=True)]
+        if arch['early_stopping'] == True:
+            self.early_stopping = [keras.callbacks.EarlyStopping(
+                monitor='loss',
+                min_delta=0, 
+                patience=arch['patience'],
+                verbose=1,
+                mode='auto',
+                restore_best_weights=True)]
+
         else:
             self.early_stopping = None
-        self.loss='mse'
         self.existing_model = existing_model
-        self.n_sensors = len(arch['sensors'])         
+        self.n_sensors = len(arch['sensors'])    
+        model_dict = {
+            'test' : set_up_model_test(arch),
+            '6' : set_up_model6(arch),
+            '7' : set_up_model7(arch),
+            '8' : set_up_model8(arch)
+            }     
         if self.existing_model == False:
-            model = set_up_model5(arch)
+            model = model_dict[arch['model']]
 
         elif self.existing_model == True:
             model_path = 'models/'+self.name+'.json'
@@ -59,58 +66,47 @@ class NeuralNet():
         amsgrad=False
         )
         model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
-        plot_model(model, to_file=name+'.png')
+        plot_model(model, to_file='figs/'+name+'.png')
         model.summary()
         self.model = model
         self.score = None
         self.loss = [None]
 
-    def train_measurements(self, series_stack, epochs = 1):
+    def train(self, series_stack):
         self.history = [None]
         self.loss = [None]
         self.val_loss = [None]
-        for i in range(len(series_stack)):
+        print('\n Number of series being used for training:', len(series_stack[self.arch['preprocess_type']]), '\n')
+        tic = time.time()
+        for i in range(len(series_stack[self.arch['preprocess_type']])):
             series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
-            steps = get_steps(self, series)
-            try:
-                indices = np.random.choice(
-                    steps,
-                    steps,
-                    replace = False
-                )
-            except ValueError:
-                print('ValueError')
-                continue
-            split = int(np.ceil(self.arch['data_split']['validation']/100*steps))
-            exclude_validation = indices[split:] # To be excluded from validation, i.e. included in training
-            exclude_train = indices[:split] # To be excluded from training
-            train_steps = len(exclude_validation)
-            validation_steps = len(exclude_train)
-            print(validation_steps)
+            print(series)
             if series.category == 'train' or series.category == 'validation':
-                '''
-                steps_per_epoch is equal to the maximal number of patterns + targets that can fit in the 
-                entire series.
-                '''
-                history = self.model.fit_generator(
-                    generator_peak(
-                        self,
-                        series,
-                        exclude_train), 
-                    steps_per_epoch=train_steps, # Number of batches to yield before performing backprop
-                    epochs=self.arch['epochs'], # Enough to fit all samples in a series once
+                print('\nFitting series: ', i, ' out of:', len(series_stack[self.arch['preprocess_type']]))
+                X, Y = generator(self, series)
+                patterns = {'speed_input' : np.array([series.normalized_speed])}
+                for j in range(len(self.arch['active_sensors'])):
+                    patterns.update({
+                        'accel_input_'+str(self.arch['pattern_sensors'][j]) : X # Ange vilken
+                    })
+                targets = Y           
+                history = self.model.fit(
+                    x = X,#patterns,
+                    y = Y,#targets, 
+                    batch_size = self.arch['batch_size'],
+                    epochs=self.arch['epochs'], 
                     verbose=1,
-                    callbacks=self.early_stopping,
-                    validation_data = generator_peak(
-                        self,
-                        series,
-                        exclude_validation),
-                    validation_steps=validation_steps)
+                    callbacks=self.early_stopping, #self.learning_rate_scheduler],
+                    validation_split = self.arch['data_split']['validation']/100,
+                    shuffle = True)
                 self.history.append(history)
                 self.loss.extend(history.history['loss'])
                 self.val_loss.extend(history.history['val_loss'])  
+                if self.arch['save_periodically'] == True and i % self.arch['save_interval'] == 0:
+                    save_model(self.model,self.name)  
         self.model.summary()
-        #self.used_epochs = len(self.loss)   
+        self.toc = np.round(time.time()-tic,1)
+        print('Elapsed time: ', self.toc)
         return
 
     def evaluation(self, series_stack):
@@ -132,106 +128,118 @@ class NeuralNet():
         speeds = []
         for i in range(len(series_stack)):
             series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
-            steps = int(np.floor(series.n_steps/self.arch['n_pattern_steps']))
             if series.category == 'test':
-                score = self.model.evaluate_generator(
-                    generator_peak(
-                        self, 
-                        series),
-                    steps = steps, # Ska vara samma som steps_per_epoch i fit_generator
-                    verbose = 1)
-                speeds.extend([series.speed])
-                scores.extend([score])
+                X, Y = generator(self, series)
+                score = self.model.evaluate(
+                    x = X,
+                    y = Y,
+                    batch_size = self.arch['batch_size'],
+                    verbose = 1,
+                    return_dict = True)
+                speeds.extend([series.speed['km/h']])
+                scores.extend([score['rmse']])
         results = {
             'scores' : scores[1:],
-            'speeds' : speeds[1:]
+            'speeds' : speeds[1:],
+            'steps' : len(speeds[1:]),
+            'damage_state' : series.damage_state
         }
-
         return results
 
     def prediction(self, manual):
-        series = manual[self.arch['preprocess_type']]['stack']['batch'+str(manual['series_to_predict']%len(manual['stack']))]
+        series = manual['stack'][self.arch['preprocess_type']]['batch'+str(manual['series_to_predict']%len(manual['stack']))]
         steps = get_steps(self, series)
+        X, Y = generator(self, series)
         predictions = self.model.predict(
-            generator_peak(
-                self,
-                series),
+            X,
+            batch_size = self.arch['batch_size'],
             verbose = 1,
-            steps = steps)               
+            steps = steps)
         indices = np.empty([steps, self.arch['n_target_steps']])
-        hindsight = np.empty([steps, self.arch['n_target_steps']])
         for i in range(steps):
-            start = i * self.arch['pattern_delta'] + self.arch['n_pattern_steps']*self.arch['delta']
-            end = i * self.arch['pattern_delta'] + (self.arch['n_target_steps'] + self.arch['n_pattern_steps'])*self.arch['delta'] 
-
-            indices[i,:] = series.indices[self.arch['target_sensor']][start:end]
-            hindsight[i,:] = series.peaks[self.arch['target_sensor']][start:end]
+            start = i * self.arch['pattern_delta']+self.arch['n_pattern_steps']*self.arch['delta']
+            end=i*self.arch['pattern_delta']+(self.arch['n_target_steps']+self.arch['n_pattern_steps'])*self.arch['delta']
+            indices[i,:] = series.timesteps[start:end]
         prediction = {
             'prediction' : predictions,
-            'indices' : indices,
-            'hindsight' : hindsight,
+            'hindsight' : Y,
             'steps' : steps,
-            'sensor' : self.arch['target_sensor']
+            'indices' : indices
         }
+        
         return prediction
 
-    def modify_model(self):
-        self.used_epochs = len(self.loss)  
+    def forecast(machines, manual):
+            # Machines
+            machine_keys = list(machines.keys())
+            # Shortcuts
+            machine = machines[machine_keys[0]]
+            delta = machine.arch['delta']
+            n_pattern_steps = machine.arch['n_pattern_steps']
+            n_target_steps = machine.arch['n_target_steps']
+            # Series
+            key = 'batch'+str(manual['series_to_predict']%len(manual['stack'][machine.arch['preprocess_type']]))
+            n_steps = manual['stack'][machine.arch['preprocess_type']][key].n_steps
+            series = manual['stack'][machine.arch['preprocess_type']][key]
+            n_series = int((n_steps-n_pattern_steps)/n_target_steps)
+            # Initial
+            initial_indices = np.arange(0,delta*n_pattern_steps,delta)
+            patterns = {}
+            for i in range(len(machine.arch['pattern_sensors'])):
+                patterns.update({ 
+                'accel_input_'+machine.arch['pattern_sensors'][i] : 
+                    np.reshape(
+                        series.data[machine.sensor_to_predict][initial_indices], 
+                        [1,machine.arch['n_pattern_steps']]
+                    )
+                })
+            forecasts = patterns.copy()
+            for i in range(n_series+1):
+                old_patterns = patterns.copy()
+                for j in range(len(machine_keys)):
+                    machine = machines[machine_keys[j]] # Pick machine
+                    prediction = machine.model.predict(
+                        old_patterns,
+                        batch_size = 1, 
+                        verbose=0,
+                        steps = 1) # Make prediction with machine
+                    pattern = patterns['accel_input_'+machine.arch['pattern_sensors'][j]] # Extract pattern
+                    pattern = np.delete(pattern,np.s_[0:n_target_steps:delta],1) # Remove first entty
+                    pattern = np.hstack([pattern,prediction]) # Add prediciton last
+                    patterns.update({
+                        'accel_input_'+machine.arch['pattern_sensors'][j] : pattern
+                        }) # Update patterns dicr
+                    forecast = forecasts['accel_input_'+machine.arch['pattern_sensors'][j]] #Extract forecast
+                    if i == n_series: # Edge case for last bit                   
+                        forecast = np.hstack(
+                            [forecast,
+                            prediction[:,:n_steps%(n_series*n_target_steps+n_pattern_steps)]]
+                            ) # Update forecast
+                    else:
+                        forecast = np.hstack([forecast,prediction]) # Update forecast
+                    forecasts.update({
+                        'accel_input_'+machine.arch['pattern_sensors'][j] : forecast
+                        }) # Update forecasts dict
+            return forecasts 
 
-def generator_accel(self, task, batch):
-    '''
-    Generator for when to use entire acceleration series
-    '''    
-    delta = self.arch['delta']
-    n_pattern_steps = self.arch['n_pattern_steps']
-    n_target_steps = self.arch['n_target_steps']
-    n_sensors = len(self.arch['sensors'])
-    n_series = int(batch.n_steps)-int(delta*n_pattern_steps)
-    while True:
-        for j in range(n_sensors):        
-            pattern = np.empty([n_series,n_pattern_steps])
-            target = np.empty([n_series,n_target_steps])
-            for k in range(n_series):                
-                pattern_indices = np.arange(k,k+(delta)*n_pattern_steps,delta)
-                target_indices = k+delta*n_pattern_steps
-                pattern[k,:] = batch.data[j][pattern_indices]
-                target[k,:] = batch.data[j][target_indices]
-                patterns = {'speed_input' :
-                            np.repeat(np.array([batch.normalized_speed,]),n_series,axis=0),        
-                            'accel_input_'+str(self.arch['sensors'][j]) : 
-                            np.reshape(pattern,[n_series,n_pattern_steps,1])}
-                targets = {'acceleration_output' : 
-                            np.reshape(target,[n_series, n_target_steps])}
-                yield(patterns, targets)
-
-def generator_peak(self, batch, include = ['foobar']):
+def generator(self, batch):
     '''
     Generator for when to use Peak accelerations and locations
     Each series of data is so big it has to be broken down
     '''
-    while True:
-        for j in range(len(self.arch['pattern_sensors'])):
-            l = 0        
-            for k in range(batch.steps[self.arch['target_sensor']]):
-                if k%self.arch['pattern_delta'] == 0 and batch.steps[self.arch['pattern_sensors'][j]] >= k + (self.arch['n_pattern_steps']+self.arch['n_target_steps'])*self.arch['delta']: # Filling the batch with samples
-                    if l not in include:            
-                        peak_pattern, location_pattern, peak_target = add_pattern(self, j, k, batch)
-                        patterns = {
-                            'peak_input_'+str(self.arch['sensors'][self.arch['pattern_sensors'][j]]) : 
-                             np.reshape(peak_pattern,[1,self.arch['n_pattern_steps'],1]),
-                            'location_input_'+str(self.arch['sensors'][self.arch['pattern_sensors'][j]]) :
-                            np.reshape(location_pattern,[1,self.arch['n_pattern_steps'],1]),
-                            'speed_input' : np.array([batch.normalized_speed]),
-                            'index_input' : np.array([k / batch.steps[self.arch['target_sensor']]])
-                        }
-                        targets = {
-                            'peak_output_'+str(self.arch['sensors'][self.arch['target_sensor']]) : 
-                            np.reshape(peak_target,[1, self.arch['n_target_steps']])
-                        }
-                        yield(patterns, targets)
-                    l+=1 
-                else: 
-                    pass
+    steps = get_steps(self, batch)
+    print(steps)
+    X = np.empty([steps,self.arch['n_pattern_steps'], len(self.arch['pattern_sensors'])])
+    Y = np.empty([steps,self.arch['n_target_steps']])
+    for j in range(len(self.arch['pattern_sensors'])):     
+        for k in range(steps):    
+            pattern_start = k*self.arch['pattern_delta']
+            pattern_finish = k*self.arch['pattern_delta']+self.arch['delta']*self.arch['n_pattern_steps']
+            target_start = k*self.arch['pattern_delta']+self.arch['delta']*self.arch['n_pattern_steps'] # +1?
+            target_finish = k*self.arch['pattern_delta']+self.arch['delta']*(self.arch['n_pattern_steps']+self.arch['n_target_steps'])
+            X[k,:,j] = batch.data[j][pattern_start:pattern_finish]
+            Y[k,:] = batch.data[j][target_start:target_finish]
+    return X, Y
     '''
     Generates inputs with shape [n_batches, n_timesteps, features]
     When there is not enough samples left to form a batch, the last batches will not be incorporated.
@@ -255,11 +263,9 @@ def add_pattern(self, j, k, batch):
 def get_steps(self, series):
     steps = int(
         np.floor(
-            (series.steps[self.arch['target_sensor']]-(self.arch['n_pattern_steps']+self.arch['n_target_steps']))/self.arch['pattern_delta']
+            (series.n_steps-(self.arch['n_pattern_steps']+self.arch['n_target_steps']))/self.arch['pattern_delta']
         )
     )
-    if steps < 0:
-        print(series.batch_num)
     return steps   
 
 def rmse(true, prediction):
@@ -285,12 +291,12 @@ def set_up_model4(arch):
     '''
     Peaks and their positions deltas as inputs
     '''
-    peak_input = Input(
+    accel_input = Input(
         shape=(
             #arch['batch_size'],
             arch['n_pattern_steps'], 
             1),
-        name = 'peak_input_90')
+        name = 'accel_input_90')
 
     location_input = Input(
         shape=(
@@ -299,7 +305,7 @@ def set_up_model4(arch):
             1),
         name = 'location_input_90')
 
-    merge_layer = concatenate([peak_input, location_input])
+    merge_layer = concatenate([accel_input, location_input])
    
     hidden_lstm_1 = LSTM(
         arch['n_units'][0],
@@ -322,40 +328,57 @@ def set_up_model4(arch):
         arch['n_target_steps'], 
         activation='tanh', 
         name='peak_output_'+str(arch['sensors'][arch['target_sensor']]))(hidden_dense_3)
-    model = Model(inputs = [peak_input, location_input], outputs = output, name='LSTM model')
+    model = Model(inputs = [accel_input, location_input], outputs = output, name='LSTM model')
     return model
-#######################################################################################################
-def set_up_model5(arch):
-    '''
-    Peaks and their positions deltas as inputs
-    '''
-    peak_input = Input(
+
+######################################################################################################
+def set_up_model_test(arch):
+    input1 = Input(shape=(1,),name='1')
+    input2 = Input(shape=(1,),name='2')
+    conc = concatenate([input1,input2])
+    output1 = Dense(1,name='out')(conc)
+    model = Model(inputs = [input1,input2], outputs = output1)
+    return model 
+######################################################################################################
+def set_up_model6(arch): # Vanilla 
+
+    accel_input = Input(
         shape=(
-            #arch['batch_size'],
             arch['n_pattern_steps'], 
             1),
-        name = 'peak_input_90')
+        name = 'accel_input_90')
 
-    location_input = Input(
-        shape=(
-            #arch['batch_size'],
+    hidden_lstm_1 = LSTM(
+        arch['n_units']['first'],
+        batch_input_shape = (
+            arch['batch_size'],
             arch['n_pattern_steps'],
             1),
-        name = 'location_input_90')
+        activation = arch['LSTM_activation'],
+        recurrent_activation = 'hard_sigmoid',
+        use_bias = arch['bias'],
+        dropout = 0.1,
+        stateful = False)(accel_input)
 
-    index_input = Input(
-        shape=(
-            1,),
-        name = 'index_input')
+    output = Dense(
+        arch['n_target_steps'], 
+        activation='tanh', 
+        name='peak_output_90')(hidden_lstm_1)
 
-    speed_input = Input(
+    model = Model(inputs = accel_input, outputs = output)
+
+    return model
+######################################################################################################
+def set_up_model7(arch):
+
+    accel_input = Input(
         shape=(
-            1,),
-        name = 'speed_input')
-            
-   
+            arch['n_pattern_steps'], 
+            1),
+        name = 'accel_input_90')
+
     hidden_lstm_1 = LSTM(
-        arch['n_units'][0],
+        arch['n_units']['first'],
         batch_input_shape = (
             arch['batch_size'],
             arch['n_pattern_steps'],
@@ -365,11 +388,10 @@ def set_up_model5(arch):
         use_bias = arch['bias'],
         dropout = 0.1,
         return_sequences = True,
-        return_state = False,
-        stateful = False)(peak_input)
+        stateful = False)(accel_input)
 
     hidden_lstm_2 = LSTM(
-        arch['n_units'][0],
+        arch['n_units']['second'],
         batch_input_shape = (
             arch['batch_size'],
             arch['n_pattern_steps'],
@@ -378,54 +400,43 @@ def set_up_model5(arch):
         recurrent_activation = 'hard_sigmoid',
         use_bias = arch['bias'],
         dropout = 0.1,
-        stateful = False)(location_input)
-
-    hidden_dense_1 = Dense(
-        arch['n_units'][0],
-        input_shape = (arch['n_units'][0],2),
-        activation = arch['Dense_activation'],
-        use_bias = True)(hidden_lstm_1)
-    
-    hidden_dense_2 = Dense(
-        arch['n_units'][0],
-        activation = arch['Dense_activation'],
-        use_bias = True)(location_input)
-
-    merge_layer_1 = concatenate([hidden_lstm_1, hidden_lstm_2])
-    
-    hidden_dense_2 = Dense(
-        1,
-        use_bias = True)(speed_input)
-    
-    hidden_dense_3 = Dense(
-        1,
-        use_bias = True)(index_input)
-
-    hidden_dense_4 = Dense(
-        arch['n_units'][1],
-        activation = arch['Dense_activation'],
-        use_bias = True)(merge_layer_1)
-
-    merge_layer_2 = concatenate([hidden_dense_2, hidden_dense_3])
-
-    merge_layer_3 = concatenate([merge_layer_1, merge_layer_2])
-
-    hidden_dense_5 = Dense(
-        arch['n_units'][2],
-        activation = 'tanh',
-        use_bias = True)(merge_layer_3)
+        stateful = False)(hidden_lstm_1)
 
     output = Dense(
         arch['n_target_steps'], 
         activation='tanh', 
-        name='peak_output_'+str(arch['sensors'][arch['target_sensor']]))(hidden_dense_5)
-    model = Model(inputs = [peak_input, location_input, speed_input, index_input], outputs = output)
+        name='peak_output_90')(hidden_lstm_2)
+
+    model = Model(inputs = accel_input, outputs = output)
+
     return model
 ######################################################################################################
-def set_up_model_test(arch):
-    input1 = Input(shape=(1,),name='1')
-    input2 = Input(shape=(1,),name='2')
-    conc = concatenate([input1,input2])
-    output1 = Dense(1,name='out')(conc)
-    model = Model(inputs = [input1,input2], outputs = output1)
-    return model 
+def set_up_model8(arch): # Vanilla but bidirectional
+    accel_input = Input(
+        shape=(
+            arch['n_pattern_steps'], 
+            1),
+        name = 'accel_input_90')
+
+    hidden_lstm_1 = Bidirectional(LSTM(
+        arch['n_units']['first'],
+        batch_input_shape = (
+            arch['batch_size'],
+            arch['n_pattern_steps'],
+            1)),
+        activation = arch['LSTM_activation'],
+        recurrent_activation = 'hard_sigmoid',
+        use_bias = arch['bias'],
+        dropout = 0.1,
+        stateful = False)(accel_input)
+
+    output = Dense(
+        arch['n_target_steps'], 
+        activation='tanh', 
+        name='peak_output_90')(hidden_lstm_1)
+
+    model = Model(inputs = accel_input, outputs = output)
+
+    return model
+######################################################################################################
+
