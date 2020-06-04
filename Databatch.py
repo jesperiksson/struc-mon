@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 
 class DataBatch():
-    def __init__(self, data, batch_num, speed, normalized_speed, category = 'train', damage_state = 1):
+    def __init__(self, data, batch_num, speed, normalized_speed, category, damage_state):
         self.data = np.array(data)
         self.unnormalized_data = np.array(data)
         for i in range(np.shape(data)[0]):
@@ -18,6 +18,7 @@ class DataBatch():
         self.speed = {'km/h' : speed, 'm/s' : (speed*3.6/10)}
         self.normalized_speed = normalized_speed
         self.damage_state = damage_state
+        self.normalized_damage_state = damage_state/100
         self.timestep = 0.001
         self.timesteps = np.arange(0, self.n_steps, 1)
         self.steps = [None]*self.sensors
@@ -56,8 +57,8 @@ class DataBatch():
         plt.show()
 
 class extrema(DataBatch):
-    def __init__(self, data, batch_num, speed, normalized_speed, element, category = 'train', damage_state = 1):  
-        super().__init__(data, batch_num, speed, normalized_speed, element)
+    def __init__(self, data, batch_num, speed, normalized_speed, category = 'train', damage_state = 1):  
+        super().__init__(data, batch_num, speed, normalized_speed)
         for i in range(self.sensors):
             indices = sp.signal.argrelextrema(
                 np.absolute(self.data[i]), 
@@ -71,8 +72,8 @@ class extrema(DataBatch):
             self.delta[i] = delta/max(delta)
 
 class peaks(DataBatch):
-    def __init__(self, data, batch_num, speed, normalized_speed, element, category = 'train', damage_state = 1):  
-        super().__init__(data, batch_num, speed, normalized_speed, element)
+    def __init__(self, data, batch_num, speed, normalized_speed, category, damage_state):  
+        super().__init__(data, batch_num, speed, normalized_speed, category, damage_state)
         self.peaks = [None]*self.sensors
         for i in range(self.sensors):
             self.indices[i], properties = sp.signal.find_peaks(
@@ -91,8 +92,8 @@ class peaks(DataBatch):
         self.data = self.peaks 
             
 class frequencySpectrum(DataBatch):
-    def __init__(self, data, batch_num, speed, normalized_speed, element, category = 'train', damage_state = 1):  
-        super().__init__(data, batch_num, speed, normalized_speed, element)#, category = 'train', damage_state = 1)           
+    def __init__(self, data, batch_num, speed, normalized_speed, category = 'train', damage_state = 1):  
+        super().__init__(data, batch_num, speed, normalized_speed)#, category = 'train', damage_state = 1)           
         time = self.timestep*self.timesteps      #time vector
         Fs = 1/self.timestep                  #Samplig freq
         self.fourier = [None]*self.sensors

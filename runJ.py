@@ -13,11 +13,11 @@ if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
     use = 'LSTM'
-    name = 'peaks_two_layers_set3'
+    name = '3'
     #####################
 
     sensors = {
-        'name' : name,        
+        'name' :use + name,        
         'active_sensors' : ['90']
         }
     sensor_dict = {}
@@ -59,34 +59,37 @@ if __name__ == "__main__":
         architecture = sensors
         from LSTM import *
         architecture.update({
-            'model' : '7',
+            'model' : 'single_layer',
             # Net configuaration
-            'n_units' : {'first' : 150, 'second' : 150},
+            'n_units' : {'first' : 150, 'second' : 100},
             'bias' : True,
-            'n_pattern_steps' : 200, # Kan ändras
-            'n_target_steps' : 50,
+            'n_pattern_steps' : 250, # Kan ändras
+            'n_target_steps' : 100,
+            'pattern_delta' : 25,
             # Sensor parameters
             'pattern_sensors' : ['90'],
             'target_sensor' : '90',
             'target_sensors' : ['90'],
             # Training parameters
-            'batch_size' : 1,
+            'batch_size' : 10,
             'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
             'delta' : 1, # Kan ändras
             'Dense_activation' : 'tanh',
             'early_stopping' : True,
             'epochs' : 200,
             'learning_rate' : 0.001, # 0.001 by default
+            'min_delta' : 0.01,
             'LSTM_activation' : 'tanh',
             'preprocess_type' : 'peaks',
-            'patience' : 30,
-            'pattern_delta' : 10,
+            'patience' : 15,
             # Data interval
-            'from' : 2000,
-            'to' : 15000,
+            'from' : 0,
+            'to' : -1,
             # Model saving
             'save_periodically' : True,
-            'save_interval' : 10 # Number of series to train on before saving
+            'save_interval' : 10, # Number of series to train on before saving
+            # Classification
+            'limit' : 0.9
         })
     elif use == 'AELSTM':
         architecture = sensor
@@ -130,7 +133,7 @@ if __name__ == "__main__":
     }
     data_split = {'train':0, 'validation':0, 'test':100}
 
-    eval_series_stack = get_eval_series(data_split, architecture, 'our_measurements/e90/') 
+    eval_series_stack = get_eval_series(data_split, architecture, 'our_measurements3/e90/') 
     #DataBatch.plot_series(healthy_series_stack['100%']['batch36'], plot_sensor = ['1/2'])
     #DataBatch.plot_frequency(eval_series_stack['52%']['frequency'], sensors)
     #DataBatch.plot_batch(healthy_series_stack['100%']['data'], architecture)
@@ -147,7 +150,7 @@ if __name__ == "__main__":
     
     for i in range(len(architecture['target_sensors'])):
         architecture['target_sensor'] = architecture['target_sensors'][i]
-        name = 'J_'+use+architecture['name']+architecture['target_sensor']
+        name = name+architecture['target_sensor']
         try:
             f = open('models/'+name+'.json')
             machine_stack.update({
@@ -169,24 +172,37 @@ if __name__ == "__main__":
         
         score_stack = {}
         keys = list(eval_series_stack)
-        '''
+        
         for j in range(len(keys)):
             score_stack.update({
                 keys[j] : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack[keys[j]])
             })    
-        '''
-    #plot_performance(score_stack, architecture)
-    #binary_prediction = get_binary_prediction(scoreStacks, architecture)
-    #plot_roc(prediction)
+        
+    plot_performance(score_stack, architecture, 'prediction')
+    binary_prediction = get_binary_prediction(score_stack, architecture)
+    plot_confusion(binary_prediction, name)
+    #plot_roc(binary_prediction)
     ########## PREDICTIONS #############
-    
-    prediction_manual = {
-        'series_to_predict' : 5,
-        'stack' : eval_series_stack['52%']
-    }
-    #prediction = NeuralNet.prediction(machine_stack[name], prediction_manual)
-    #plot_prediction(prediction, prediction_manual, use)
-    forecast = NeuralNet.forecast(machine_stack, prediction_manual)
-    plot_forecast(forecast, prediction_manual, architecture)
+    prediction_score = {}
+    for i in range(len(keys)):
+        scores = [None]*len(eval_series_stack[keys[i]])
+        speeds = [None]*len(eval_series_stack[keys[i]])
+        damage_states = [None]*len(eval_series_stack[keys[i]])
+        for j in range(len(eval_series_stack[keys[i]])):
+            prediction_manual = {
+                'series_to_predict' : j,
+                'stack' : eval_series_stack[keys[i]]
+            }
+            #prediction = NeuralNet.prediction(machine_stack[name], prediction_manual)
+            #plot_prediction(prediction, prediction_manual, use)
+            forecast, tup = NeuralNet.forecast(machine_stack, prediction_manual)
+            scores[j] = tup[0]
+            speeds[j] = tup[1]
+            damage_states[j] = tup[2]
+        prediction_score.update({
+            keys[i] : {'scores' : scores, 'speeds' : speeds, 'damage_state' : damage_states}           
+            })
+        #plot_forecast(forecast, prediction_manual, architecture)
+    plot_performance(prediction_score, architecture, 'forecast')
 
     

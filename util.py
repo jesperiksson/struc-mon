@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import scipy.stats as stats
-from sklearn.metrics import roc_curve
+import seaborn as sn
+from sklearn.metrics import roc_curve, confusion_matrix, plot_confusion_matrix
 import os
 import h5py
 import random
@@ -27,7 +28,7 @@ def fit_to_NN(
         paths.update(
             {arch['active_sensors'][i] : path+'s'+arch['active_sensors'][i]+'/'})
 
-    seed = 1000
+    seed = random.randint(0,10000)#1000
     file_list = os.listdir(paths[arch['active_sensors'][0]])
     file_list.sort()
     random.Random(seed).shuffle(file_list)
@@ -143,93 +144,65 @@ def plot_loss(self, name):
     plt.savefig(fname = name+'_loss_plot.png')
     plt.show() 
 
-def plot_performance(score_stack, a):
+def plot_performance(score_stack, a, pod): # pod = prediction or forecast
     cmap = plt.cm.rainbow
     norm = colors.Normalize(vmin=33,vmax=100)
     percentage_keys = list(score_stack)
     
     for i in range(len(percentage_keys)): # Iterates over percentages
-        for j in range(len(score_stack[percentage_keys[i]]['speeds'])):
+        for j in range(len(score_stack[percentage_keys[i]])):
             plt.plot(score_stack[percentage_keys[i]]['speeds'][j], 
                      score_stack[percentage_keys[i]]['scores'][j], 
-                     color=cmap(norm(score_stack[percentage_keys[i]]['damage_state'])), 
+                     color=cmap(norm(score_stack[percentage_keys[i]]['damage_state'][j])), 
                      marker='o')
     plt.xlabel('Speed [km/h]')
     plt.ylabel('Root Mean Square Error')
-    plt.title('At sensor' + str(a['target_sensor']))
+    plt.title('Sample scores for '+pod+' at sensor ' + str(a['target_sensor']))
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     plt.colorbar(sm)
     plt.legend()
+    plt.savefig(fname = a['name']+pod+'_performance_plot.png')
     plt.show()
 
-def score_evaluation(score_stack,a):
-
-    limit=0.90                          #difference between healthy/unhealthy
-    dmg_cases=[90, 81, 71, 62, 52, 43, 33]
-
-    y_actual=[]    #error type 1
-    y_predicted=[]    #error type 2
-    
-    
-    scores=score_Stack[sensor_ind[0]]
-    score=scores[100]
-    
-    data_set=score['scores']
-    mu=np.mean(data_set)
-    variance=np.var(data_set)
-    sigma=np.sqrt(variance)
-
-    ### HEALTHY EVALUATION ###
-    norm_test=stats.norm.cdf((data_set-mu)/sigma)
-    
-    for i in range(len(norm_test)):
-        y_actual.append(0)
-        test_var=norm_test[i]
-        if test_var > limit :
-            y_predicted.append(1)
-        else:
-            y_predicted.append(0)
-                    
-
-    for k in range(len(dmg_cases)):
-        X=scores[dmg_cases[k]]
-        Xs=X['scores']
-        norm_test_dmg=stats.norm.cdf((Xs-mu)/sigma)
-        for j in range(len(norm_test_dmg)):
-            test_var=norm_test_dmg[j]
-            y_actual.append(1)
-            if test_var < limit :
-                y_predicted.append(0)
-            else:
-                y_predicted.append(1)
-    raw_data={'Actual': y_actual,
-          'Predicted': y_predicted
-          }
-    
-    df = pd.DataFrame(raw_data, columns=['Actual','Predicted'])
-    confusion_crosstab = pd.crosstab(df['Actual'], df['Predicted'],
-                                   rownames=['Actual'], colnames=['Predicted'])
-    #print(confusion_crosstab)
-    data=np.array(confusion_crosstab)
-
-    text=np.asarray([['True Negatives','False Positives'],
-                     ['False Negatives','True Positives']])
+def plot_confusion(prediction, name):
+    data = np.array(prediction['confusion_matrix'])
+    print(data)
+    text = np.asarray(
+        [['True Negatives','False Positives'],
+        ['False Negatives','True Positives']]
+        )
     
     labels = (np.asarray(["{0}\n{1:.0f}".format(text,data) for text, data in zip(text.flatten(), data.flatten())])).reshape(2,2)
-    sn.heatmap(confusion_crosstab, annot=labels, fmt='', cbar=False,cmap='binary')
+    sn.heatmap(
+        prediction['confusion_matrix'], 
+        annot = labels,
+        fmt='', 
+        cbar = False,
+        cmap = 'binary')
+    plt.savefig(fname = name+'_confusion_matrix.png')
     plt.show()
-def get_binary_prediction(score_stack, arch, limit = 0.9):
-    phi = [None] * len(score_stack)
-    prediction = [None] * len(score_stack)
-    for i in range(len(score_stack)):
-        mu = np.mean(score_stack[arch['sensor_to_predict']][arch['healthy'][i]])
-        sigma = np.sqrt(np.var(score_stack[arch['sensor_to_predict']][arch['healthy'][i]]))
-        phi[i] = stats.norm.cdf(score_stack[arch['sensor_to_predict']][arch['healthy'][i]], mu, sigma)
-        prediction[i] = np.heaviside(phi[i]-limit, 1)
-    prediction = {
-        'Phi' : phi,
-        'prediction' : prediction}
-    return prediction
+
+def get_binary_prediction(score_stack, arch):
+    damage_cases = list(score_stack.keys())
+    phi = np.empty(1)
+    labels = np.empty(1)
+    mu = np.mean(score_stack['100%']['scores'])
+    sigma = np.sqrt(np.var(score_stack['100%']['scores']))
+    for i in range(len(damage_cases)):
+        phi = np.append(phi,stats.norm.cdf(score_stack[damage_cases[i]]['scores'], mu, sigma),axis=0)
+        if damage_cases[i] == '100%':
+            labels = np.append(labels, np.zeros(len(score_stack[damage_cases[i]]['scores'])),axis=0)    
+        else: 
+            labels = np.append(labels, np.ones(len(score_stack[damage_cases[i]]['scores'])),axis=0) 
+    prediction = np.heaviside(phi-arch['limit'], 1)
+    prediction_dict = {
+        'Phi' : phi[1:],
+        'prediction' : prediction[1:],
+        'labels' : labels[1:]}
+    prediction_dict.update(
+        {'confusion_matrix' : confusion_matrix(prediction_dict['prediction'],prediction_dict['labels'])}
+        )
+    return prediction_dict
 
 def plot_roc(prediction):
     false_positive_rate, true_positive_rate = roc_curve(
@@ -237,11 +210,10 @@ def plot_roc(prediction):
         y_score = prediction['Phi']
         )
     plt.plot(false_positive_rate, true_positive_rate)
+    plt.savefig(fname = name+'_roc.png')
     plt.show()
 
 def plot_prediction(prediction, manual, net):
-    #key = 'batch'+str(manual['series_to_predict']%len(manual['stack']))
-    #series = manual['stack'][key]
     plt.figure()
     
     if net == 'LSTM': 
@@ -257,12 +229,13 @@ def plot_prediction(prediction, manual, net):
         plt.plot(prediction['indices'], prediction['prediction'], 'b', linewidth=0.4)
         plt.plot(prediction['indices'], prediction['hindsight'], 'r', linewidth=0.4) 
         plt.legend(['Prediction', 'Signals'])   
-    
+    plt.savefig(fname = net.name+'_prediction_plot.png')
     plt.show()
     return
 
 def plot_forecast(forecast, manual, a):
     key = 'batch'+str(manual['series_to_predict'])
+    #print(forecast)
     forecast_keys = list(forecast.keys())
     for i in range(len(forecast_keys)): 
         plt.subplot(len(forecast_keys),1,i+1)
@@ -276,14 +249,10 @@ def plot_forecast(forecast, manual, a):
             manual['stack'][a['preprocess_type']][key].data[i], 
             'r', 
             linewidth=0.4)
+        plt.legend(['Forecast', 'Signals']) 
+    plt.savefig(fname = a['name']+'series'+str(manual['series_to_predict'])+'_forecast_plot.png')
     plt.show() 
                  
-
-
-
-
-
-
 
 
 

@@ -27,7 +27,7 @@ class NeuralNet():
         if arch['early_stopping'] == True:
             self.early_stopping = [keras.callbacks.EarlyStopping(
                 monitor='loss',
-                min_delta=0, 
+                min_delta=arch['min_delta'], 
                 patience=arch['patience'],
                 verbose=1,
                 mode='auto',
@@ -39,9 +39,9 @@ class NeuralNet():
         self.n_sensors = len(arch['sensors'])    
         model_dict = {
             'test' : set_up_model_test(arch),
-            '6' : set_up_model6(arch),
-            '7' : set_up_model7(arch),
-            '8' : set_up_model8(arch)
+            'single_layer' : set_up_model6(arch),
+            'two_layer' : set_up_model7(arch),
+            'single_layer_bidirectional' : set_up_model8(arch)
             }     
         if self.existing_model == False:
             model = model_dict[arch['model']]
@@ -59,14 +59,17 @@ class NeuralNet():
         else:
             raise Error
         optimizer = keras.optimizers.Adam(
-        learning_rate = arch['learning_rate'],
-        beta_1=0.9,
-        beta_2=0.999,
-        epsilon=1e-07,
-        amsgrad=False
-        )
-        model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
-        plot_model(model, to_file='figs/'+name+'.png')
+            learning_rate = arch['learning_rate'],
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-07,
+            amsgrad=False
+            )
+        model.compile(
+            optimizer=optimizer, 
+            loss=rmse, 
+            metrics=[rmse])
+        plot_model(model, to_file=name+'.png')
         model.summary()
         self.model = model
         self.score = None
@@ -84,12 +87,17 @@ class NeuralNet():
             if series.category == 'train' or series.category == 'validation':
                 print('\nFitting series: ', i, ' out of:', len(series_stack[self.arch['preprocess_type']]))
                 X, Y = generator(self, series)
-                patterns = {'speed_input' : np.array([series.normalized_speed])}
+                patterns = {
+                    'speed_input' : np.array([series.normalized_speed]),
+                    'damage_input' : series.normalized_damage_state}
                 for j in range(len(self.arch['active_sensors'])):
                     patterns.update({
                         'accel_input_'+str(self.arch['pattern_sensors'][j]) : X # Ange vilken
                     })
-                targets = Y           
+                targets = {
+                    'accel_output_'+str(self.arch['pattern_sensors'][j]) : Y,
+                    'damage_state_output' : series.normalized_damage_state
+                    }           
                 history = self.model.fit(
                     x = X,#patterns,
                     y = Y,#targets, 
@@ -126,23 +134,26 @@ class NeuralNet():
     def evaluation_batch(self, series_stack):
         scores = []
         speeds = []
-        for i in range(len(series_stack)):
+        damage_states = []
+        for i in range(len(series_stack[self.arch['preprocess_type']])):
             series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
-            if series.category == 'test':
-                X, Y = generator(self, series)
-                score = self.model.evaluate(
-                    x = X,
-                    y = Y,
-                    batch_size = self.arch['batch_size'],
-                    verbose = 1,
-                    return_dict = True)
-                speeds.extend([series.speed['km/h']])
-                scores.extend([score['rmse']])
+            X, Y = generator(self, series)
+            score = self.model.evaluate(
+                x = X,
+                y = Y,
+                batch_size = self.arch['batch_size'],
+                verbose = 1,
+                return_dict = True)
+            speeds.extend([series.speed['km/h']])
+            scores.extend([score['rmse']])
+            damage_states.extend([series.damage_state])
+            
+            #print(series, series.damage_state)
         results = {
             'scores' : scores[1:],
             'speeds' : speeds[1:],
             'steps' : len(speeds[1:]),
-            'damage_state' : series.damage_state
+            'damage_state' : damage_states[1:]
         }
         return results
 
@@ -194,6 +205,7 @@ class NeuralNet():
                     )
                 })
             forecasts = patterns.copy()
+            evaluation = {}
             for i in range(n_series+1):
                 old_patterns = patterns.copy()
                 for j in range(len(machine_keys)):
@@ -220,7 +232,22 @@ class NeuralNet():
                     forecasts.update({
                         'accel_input_'+machine.arch['pattern_sensors'][j] : forecast
                         }) # Update forecasts dict
-            return forecasts 
+            '''
+            evaluation.update(
+                {'scores' : rmse(
+                        series.data[j][n_pattern_steps:], 
+                        forecasts['accel_input_'+machine.arch['pattern_sensors'][j]][0][n_pattern_steps:]),
+                'speed' : series.speed,
+                'damage_state' : series.damage_state
+                    }
+                )
+            '''
+            score = rmse_np(
+                series.data[j][n_pattern_steps:], 
+                forecasts['accel_input_'+machine.arch['pattern_sensors'][j]][0][n_pattern_steps:])
+            speed = series.speed['km/h']
+            damage_state = series.damage_state
+            return forecasts, (score, speed, damage_state)
 
 def generator(self, batch):
     '''
@@ -228,7 +255,7 @@ def generator(self, batch):
     Each series of data is so big it has to be broken down
     '''
     steps = get_steps(self, batch)
-    print(steps)
+    #print(steps)
     X = np.empty([steps,self.arch['n_pattern_steps'], len(self.arch['pattern_sensors'])])
     Y = np.empty([steps,self.arch['n_target_steps']])
     for j in range(len(self.arch['pattern_sensors'])):     
@@ -270,6 +297,9 @@ def get_steps(self, series):
 
 def rmse(true, prediction):
     return backend.sqrt(backend.mean(backend.square(prediction - true), axis=-1))
+
+def rmse_np(true, prediction):
+    return np.sqrt(np.mean(np.square(prediction - true), axis=-1))
 
 
 #######################################################################################################
@@ -423,12 +453,12 @@ def set_up_model8(arch): # Vanilla but bidirectional
         batch_input_shape = (
             arch['batch_size'],
             arch['n_pattern_steps'],
-            1)),
+            1),
         activation = arch['LSTM_activation'],
         recurrent_activation = 'hard_sigmoid',
         use_bias = arch['bias'],
         dropout = 0.1,
-        stateful = False)(accel_input)
+        stateful = False))(accel_input)
 
     output = Dense(
         arch['n_target_steps'], 
@@ -439,4 +469,30 @@ def set_up_model8(arch): # Vanilla but bidirectional
 
     return model
 ######################################################################################################
+def set_up_model9(arch):
 
+    accel_input = Input(
+        shape=(
+            arch['n_pattern_steps'], 
+            1),
+        name = 'accel_input_90')
+
+    hidden_lstm_1 = Bidirectional(LSTM(
+        arch['n_units']['first'],
+        batch_input_shape = (
+            arch['batch_size'],
+            arch['n_pattern_steps'],
+            1),
+        activation = arch['LSTM_activation'],
+        recurrent_activation = 'hard_sigmoid',
+        use_bias = arch['bias'],
+        dropout = 0.1,
+        stateful = False))(accel_input)
+
+    output = Dense(
+        arch['n_target_steps'], 
+        activation='sigmoid', 
+        name='damage_state_output')(hidden_lstm_1)
+
+    model = Model(inputs = accel_input, outputs = output)
+    return model
