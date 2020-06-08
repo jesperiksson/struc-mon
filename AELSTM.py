@@ -256,7 +256,7 @@ def set_up_model5(arch):
         return_sequences = True)(decoded_2)
    
     hidden_lstm_1 = LSTM(
-        arch['n_units']['first'],
+        arch['n_units']['first'], 
         batch_input_shape = (
             arch['batch_size'],
             arch['n_pattern_steps'],

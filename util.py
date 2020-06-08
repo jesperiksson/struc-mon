@@ -28,7 +28,7 @@ def fit_to_NN(
         paths.update(
             {arch['active_sensors'][i] : path+'s'+arch['active_sensors'][i]+'/'})
 
-    seed = random.randint(0,10000)#1000
+    seed = 1#random.randint(0,10000)
     file_list = os.listdir(paths[arch['active_sensors'][0]])
     file_list.sort()
     random.Random(seed).shuffle(file_list)
@@ -110,16 +110,27 @@ def fit_to_NN(
 
     return preprocess_stack
 
-def get_eval_series(data_split, a, path):
-    #element_dir_list = os.listdir(path)
+def get_train_series(a):
     eval_series_stack = {}
-    #for i in range(len(element_dir_list)):
-    damage_dir_list = os.listdir(path)#+element_dir_list[i])
+    damage_dir_list = os.listdir(a['path'])
+    for j in range(len(damage_dir_list)):
+        eval_series_stack.update({
+            damage_dir_list[j] : fit_to_NN(
+                a['data_split'],
+                a['path']+'/'+damage_dir_list[j]+'/', 
+                int(damage_dir_list[j][:-1]),
+                a)
+            })
+    return train_series_stack
+
+def get_eval_series(data_split, a):
+    eval_series_stack = {}
+    damage_dir_list = os.listdir(a['path'])
     for j in range(len(damage_dir_list)):
         eval_series_stack.update({
             damage_dir_list[j] : fit_to_NN(
                 data_split,
-                path+'/'+damage_dir_list[j]+'/', #+element_dir_list[i]
+                a['path']+'/'+damage_dir_list[j]+'/',
                 int(damage_dir_list[j][:-1]),
                 a)
             })
@@ -148,13 +159,20 @@ def plot_performance(score_stack, a, pod): # pod = prediction or forecast
     cmap = plt.cm.rainbow
     norm = colors.Normalize(vmin=33,vmax=100)
     percentage_keys = list(score_stack)
-    
+    print(len(percentage_keys))
     for i in range(len(percentage_keys)): # Iterates over percentages
         for j in range(len(score_stack[percentage_keys[i]])):
-            plt.plot(score_stack[percentage_keys[i]]['speeds'][j], 
-                     score_stack[percentage_keys[i]]['scores'][j], 
-                     color=cmap(norm(score_stack[percentage_keys[i]]['damage_state'][j])), 
-                     marker='o')
+            try:
+                plt.plot(score_stack[percentage_keys[i]]['speeds'][j], 
+                         score_stack[percentage_keys[i]]['scores'][j], 
+                         color=cmap(norm(score_stack[percentage_keys[i]]['damage_state'][j])), 
+                         marker='o')
+            except TypeError:
+                plt.plot(score_stack[percentage_keys[i]]['speeds'][j], 
+                         score_stack[percentage_keys[i]]['scores'][j], 
+                         color=cmap(norm(score_stack[percentage_keys[i]]['damage_state'])), 
+                         marker='o')
+
     plt.xlabel('Speed [km/h]')
     plt.ylabel('Root Mean Square Error')
     plt.title('Sample scores for '+pod+' at sensor ' + str(a['target_sensor']))

@@ -4,14 +4,13 @@ from Databatch import *
 # Modules
 import time
 import tensorflow as tf
-import keras
-from keras.models import Sequential, Model, model_from_json
-from keras.layers import Input, Dense, concatenate, Activation, Flatten 
-from keras import metrics, callbacks, regularizers
-from keras.utils import plot_model
-from keras import backend
-#from matplotlib import pyplot
-from keras.optimizers import RMSprop
+from tensorflow import keras
+from tensorflow.python.keras.models import Sequential, Model, model_from_json
+from tensorflow.python.keras.layers import Input, Dense, concatenate, Activation, Flatten 
+from tensorflow.python.keras.callbacks import EarlyStopping
+from tensorflow.python.keras import metrics, regularizers
+from tensorflow.keras.utils import plot_model
+from tensorflow.python.keras import backend
 
 class NeuralNet():
     def __init__(self,
@@ -34,9 +33,13 @@ class NeuralNet():
             self.early_stopping = None
         self.loss='mse'
         self.existing_model = existing_model
-        n_sensors = len(arch['sensors'])         
+        n_sensors = len(arch['sensors'])
+        model_dict = {
+            'single_layer' : set_up_model3(arch),
+            'two_layer' : set_up_model5(arch)
+            }          
         if self.existing_model == False:
-            model = set_up_model5(arch)
+            model = model_dict[arch['model']]
 
         elif self.existing_model == True:
             model_path = 'models/'+self.name+'.json'
@@ -88,39 +91,37 @@ class NeuralNet():
         self.loss = self.history.history['loss']
         self.val_loss = self.history.history['val_loss']
         self.used_epochs = len(self.val_loss)
-        self.toc = np.round(time.time()-t,1)
+        self.toc = np.round(time.time()-tic,1)
         print('Elapsed time: ', self.toc)
         return
 
-    def evaluation(self, series_stack): # Model score (loss and RMSE)
-        self.score = self.model.evaluate_generator(
-            generator(
-                self, 
-                'test', 
-                series_stack[self.arch['preprocess_type']]),
-            steps = self.arch['data_split']['test']/100*len(series_stack),
-            verbose = 1)
-        print('Model score: ', self.model.metrics_names, self.score)
-        return
-
-    def evaluation_batch(self, series_stack): # RMSE for a single batch
+    def evaluation(self, series_stack): # RMSE for a single batch
         scores = []
         speeds = []
+        damage_states = []
+        print('steps',len(series_stack[self.arch['preprocess_type']]))
         for i in range(len(series_stack[self.arch['preprocess_type']])):
-            key = 'batch'+str(i%len(series_stack[self.arch['preprocess_type']]))
-            series = series_stack[self.arch['preprocess_type']][key]
-            if series.category == 'test':
-                patterns, targets = data_sequence(self, series)
-                speed = series.speed
-                score = self.model.test_on_batch(patterns, targets, reset_metrics=False)[1]#['loss', 'rmse']
-                speeds.extend([series.speed['km/h']])
-                scores.extend([score])
-                #print(scores)
+            series = series_stack[self.arch['preprocess_type']]['batch'+str(i)]
+            #if series.category == 'test':
+            print(i)
+            patterns, targets = data_sequence(self, series)
+            score = self.model.evaluate(
+                x = patterns, 
+                y = targets,
+                #batch_size = self.arch['batch_size'], 
+                #verbose = 1,
+                #reset_metrics = False,
+                return_dict = True)
+            speeds.extend([series.speed['km/h']])
+            scores.extend([score['rmse']])
+            damage_states.extend([series.damage_state])
         results = {
-            'scores' : scores[1:],
-            'speeds' : speeds[1:],
-            'damage_state' : series.damage_state
+            'scores' : scores[:],
+            'speeds' : speeds[:],
+            'steps' : len(speeds[:]),
+            'damage_state' : damage_states[:]
         }
+        print(results)
         return results
 
     def prediction(self, manual):
@@ -162,12 +163,13 @@ class NeuralNet():
             n_target_steps = machine.arch['n_target_steps']
             # Series
             key = 'batch'+str(manual['series_to_predict']%len(manual['stack'][machine.arch['preprocess_type']]))
+            n_steps = manual['stack'][machine.arch['preprocess_type']][key].n_steps
             series = manual['stack'][machine.arch['preprocess_type']][key]
-            n_series = int(manual['stack'][machine.arch['preprocess_type']][key].n_steps)-int(n_pattern_steps)
+            n_series = int((n_steps-n_pattern_steps)/n_target_steps)
+            print(n_steps, n_series)
             # Initial
             initial_indices = np.arange(0,delta*n_pattern_steps,delta)
             patterns = {}
-            print(n_series, np.shape(series.data))
             for i in range(len(machine.arch['pattern_sensors'])):
                 patterns.update({ 
                 'accel_input_'+machine.arch['pattern_sensors'][i] : 
@@ -177,23 +179,40 @@ class NeuralNet():
                     )
                 })
             forecasts = patterns.copy()
-            for i in range(n_series):
+            evaluation = {}
+            for i in range(n_series+1):
+                print('Making predictions on series ', i, ' out of ', n_series)
                 old_patterns = patterns.copy()
                 for j in range(len(machine_keys)):
                     machine = machines[machine_keys[j]] # Pick machine
-                    prediction = machine.model.predict(old_patterns, verbose=0) # Make prediction with machine
+                    prediction = machine.model.predict(
+                        old_patterns,
+                        batch_size = 1, 
+                        verbose=0,
+                        steps = 1) # Make prediction with machine
                     pattern = patterns['accel_input_'+machine.arch['pattern_sensors'][j]] # Extract pattern
-                    pattern = np.delete(pattern,0,1) # Remove first enrty
+                    pattern = np.delete(pattern,np.s_[0:n_target_steps:delta],1) # Remove first entty
                     pattern = np.hstack([pattern,prediction]) # Add prediciton last
                     patterns.update({
                         'accel_input_'+machine.arch['pattern_sensors'][j] : pattern
                         }) # Update patterns dicr
                     forecast = forecasts['accel_input_'+machine.arch['pattern_sensors'][j]] #Extract forecast
-                    forecast = np.hstack([forecast,prediction]) # Update forecast
+                    if i == n_series: # Edge case for last bit                   
+                        forecast = np.hstack(
+                            [forecast,
+                            prediction[:,:n_steps%(n_series*n_target_steps+n_pattern_steps)]]
+                            ) # Update forecast
+                    else:
+                        forecast = np.hstack([forecast,prediction]) # Update forecast
                     forecasts.update({
                         'accel_input_'+machine.arch['pattern_sensors'][j] : forecast
                         }) # Update forecasts dict
-            return forecasts
+            score = rmse_np(
+                series.data[j][n_pattern_steps:], 
+                forecasts['accel_input_'+machine.arch['pattern_sensors'][j]][0][n_pattern_steps:])
+            speed = series.speed['km/h']
+            damage_state = series.damage_state
+            return forecasts, (score, speed, damage_state)
 
 # General Utilities
 def data_sequence(self, series):
@@ -214,7 +233,6 @@ def data_sequence(self, series):
             targets[k,:] = series.data[j][target_indices]
         inputs.append(patterns)
         outputs.append(targets)
-    print(np.shape(inputs))
     patterns = {'speed_input' : np.repeat(np.array([series.normalized_speed,]),n_series,axis=0)}
     for i in range(len(self.arch['pattern_sensors'])):
         patterns.update({'accel_input_'+self.arch['pattern_sensors'][i] : inputs[i]})
@@ -236,20 +254,26 @@ def generator(self, task, series_stack):
 def rmse(true, prediction):
     return backend.sqrt(backend.mean(backend.square(prediction - true), axis=-1))
 
-
+def rmse_np(true, prediction):
+    return np.sqrt(np.mean(np.square(prediction - true), axis=-1))
 
 ####################################################################################################
 def set_up_model3(arch):
     
     accel_input = Input(
         shape=(arch['n_pattern_steps'], ),
-        name='accel_input_'+str(arch['sensors'][0])
-        )
+        name='accel_input_90')
 
-    hidden_1 = Dense(arch['n_units']['first'],
-                     activation = arch['Dense_activation'],
-                     use_bias=arch['bias'])(accel_input)
-    output = Dense(arch['n_target_steps'], activation='tanh', name='acceleration_output')(hidden_1) 
+    hidden_1 = Dense(
+        arch['n_units']['first'],
+        activation = arch['Dense_activation'],
+        use_bias=arch['bias'])(accel_input)
+
+    output = Dense(
+        arch['n_target_steps'], 
+        activation='tanh', 
+        name='acceleration_output')(hidden_1) 
+
     model = Model(inputs = accel_input, outputs = output)
     return model
 #######################################################################################################

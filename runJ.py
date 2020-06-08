@@ -1,9 +1,3 @@
-# Modules
-#import numpy as np
-#import tensorflow as tf
-#from tensorflow import keras
-#import matplotlib.pyplot as plt
-#from scipy.io import loadmat
 # Class files
 from Databatch import *
 # Utility file
@@ -12,31 +6,34 @@ from util import *
 if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
-    use = 'LSTM'
-    name = '3'
+    use = 'MLP'
+    name = '2'
     #####################
 
-    sensors = {
-        'name' :use + name,        
-        'active_sensors' : ['90']
+    architecture = {
+        'name' :use + name,
+        'active_sensors' : ['90'],
+        'predict' : 'accelerations', # accelerations or damage
+        'path' : 'our_measurements3/e90/'
         }
     sensor_dict = {}
-    for i in range(len(sensors['active_sensors'])):
+    for i in range(len(architecture['active_sensors'])):
         sensor_dict.update({
-            sensors['active_sensors'][i] : i
+            architecture['active_sensors'][i] : i
             })
-    sensors.update({
+    architecture.update({
         'sensors' : sensor_dict
         })
     if use == 'MLP':
-        architecture = sensors
         from MLP import *
         architecture.update({
+            'model' : 'single_layer',
             # Net configuration
             'bias' : True,
-            'n_pattern_steps' : 20, # Kan ändras
-            'n_target_steps' : 1,
-            'n_units' : {'first' : 50, 'second' : 15},
+            'n_pattern_steps' : 200, # Kan ändras
+            'n_target_steps' : 20,
+            'delta' : 10,
+            'n_units' : {'first' : 150, 'second' : 15},
             # Sensor parameters
             'pattern_sensors' : ['90'], # Indices must be used rahter than placements
             'target_sensor' : '90',
@@ -48,15 +45,15 @@ if __name__ == "__main__":
             'early_stopping' : True,
             'learning_rate' : 0.001, # 0.001 by default
             'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
-            'preprocess_type' : 'peaks',
-            'delta' : 2,      
+            'preprocess_type' : 'peaks',      
             'batch_size' : 25,
             # Data interval
             'from' : 0,
-            'to' : -1
+            'to' : -1,
+            # Classification
+            'limit' : 0.9
         })
     elif use == 'LSTM':
-        architecture = sensors
         from LSTM import *
         architecture.update({
             'model' : 'single_layer',
@@ -92,7 +89,6 @@ if __name__ == "__main__":
             'limit' : 0.9
         })
     elif use == 'AELSTM':
-        architecture = sensor
         from AELSTM import *
         architecture.update({
             'n_units' : {'first': 800, 'second': 200, 'third' : 40, 'fourth': 20},
@@ -122,35 +118,32 @@ if __name__ == "__main__":
             'save_interval' : 10 # Number of series to train on before saving
         })
    
+    if architecture['predict'] == 'damage':
+        train_series_stack = get_train_series(architecture)
+        eval_train_series = train_series_stack
+        '''
+        This is the normal case where alla available data is divided into train/ test/ validation
+        '''
 
-    healthy_series_stack = {
-        '100%' : fit_to_NN(
+    elif architecture['predict'] == 'accelerations':
+        train_series_stack = fit_to_NN(
             architecture['data_split'],
-            'our_measurements3/e90/100%/',#2/e90/100%/'
+            architecture['path'] + '100%/',#2/e90/100%/'
             100,
-            architecture
-        )
-    }
-    data_split = {'train':0, 'validation':0, 'test':100}
-
-    eval_series_stack = get_eval_series(data_split, architecture, 'our_measurements3/e90/') 
-    #DataBatch.plot_series(healthy_series_stack['100%']['batch36'], plot_sensor = ['1/2'])
-    #DataBatch.plot_frequency(eval_series_stack['52%']['frequency'], sensors)
-    #DataBatch.plot_batch(healthy_series_stack['100%']['data'], architecture)
-    #DataBatch.plot_batch(eval_series_stack['90%'])
-    #DataBatch.plot_batch(eval_series_stack['81%']['data'], architecture)
-    #DataBatch.plot_batch(eval_series_stack['71%'])
-    #DataBatch.plot_batch(eval_series_stack['62%'])
-    #DataBatch.plot_batch(eval_series_stack['52%'])
-    #DataBatch.plot_batch(eval_series_stack['43%'])
-    #DataBatch.plot_batch(eval_series_stack['33%'])
-    #quit()
-    
+            architecture)
+        eval_series_stack = get_eval_series(
+            {'train':0, 'validation':0, 'test':100}, 
+            architecture)
+        '''
+        This is special case where only healthy data is used for training and 
+        all damaged data is used for testing.
+        '''
+    #print(eval_series_stack)
     machine_stack = {}
     
     for i in range(len(architecture['target_sensors'])):
         architecture['target_sensor'] = architecture['target_sensors'][i]
-        name = name+architecture['target_sensor']
+        name = architecture['name']+architecture['target_sensor']
         try:
             f = open('models/'+name+'.json')
             machine_stack.update({
@@ -164,19 +157,18 @@ if __name__ == "__main__":
                      name,
                      existing_model = False)
             })
-            NeuralNet.train(machine_stack[name], healthy_series_stack['100%'])  
+            NeuralNet.train(machine_stack[name], train_series_stack)  
             save_model(machine_stack[name].model, name)
-            plot_loss(machine_stack[name], name)
-        
-        #NeuralNet.evaluation(machine_stack[name], healthy_series_stack['100%'])     
+            plot_loss(machine_stack[name], name)  
         
         score_stack = {}
         keys = list(eval_series_stack)
         
         for j in range(len(keys)):
             score_stack.update({
-                keys[j] : NeuralNet.evaluation_batch(machine_stack[name], eval_series_stack[keys[j]])
-            })    
+                keys[j] : NeuralNet.evaluation(machine_stack[name], eval_series_stack[keys[j]])
+            })
+        #print(score_stack)    
         
     plot_performance(score_stack, architecture, 'prediction')
     binary_prediction = get_binary_prediction(score_stack, architecture)

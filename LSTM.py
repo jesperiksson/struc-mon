@@ -47,8 +47,8 @@ class NeuralNet():
             model = model_dict[arch['model']]
 
         elif self.existing_model == True:
-            model_path = 'models/'+self.name+'.json'
-            weights_path = 'models/'+self.name+'.h5'
+            model_path = 'models/'+self.arch['name']+'.json'
+            weights_path = 'models/'+self.arch['name']+'.h5'
             json_file = open(model_path)
             loaded_model_json = json_file.read()
             json_file.close()
@@ -118,20 +118,6 @@ class NeuralNet():
         return
 
     def evaluation(self, series_stack):
-        for i in range(len(series_stack)):
-            series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
-            steps = get_steps(self, series)
-            if series.category == 'train':
-                self.score = self.model.evaluate_generator(
-                    generator_peak(
-                        self, 
-                        series),
-                    steps = steps,
-                    verbose = 1)
-        print('Model score: ', self.model.metrics_names, self.score)
-        return
-
-    def evaluation_batch(self, series_stack):
         scores = []
         speeds = []
         damage_states = []
@@ -232,16 +218,6 @@ class NeuralNet():
                     forecasts.update({
                         'accel_input_'+machine.arch['pattern_sensors'][j] : forecast
                         }) # Update forecasts dict
-            '''
-            evaluation.update(
-                {'scores' : rmse(
-                        series.data[j][n_pattern_steps:], 
-                        forecasts['accel_input_'+machine.arch['pattern_sensors'][j]][0][n_pattern_steps:]),
-                'speed' : series.speed,
-                'damage_state' : series.damage_state
-                    }
-                )
-            '''
             score = rmse_np(
                 series.data[j][n_pattern_steps:], 
                 forecasts['accel_input_'+machine.arch['pattern_sensors'][j]][0][n_pattern_steps:])
