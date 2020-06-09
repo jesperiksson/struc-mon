@@ -63,8 +63,7 @@ class NeuralNet():
             beta_1=0.9,
             beta_2=0.999,
             epsilon=1e-07,
-            amsgrad=False
-            )
+            amsgrad=False)
         model.compile(
             optimizer=optimizer, 
             loss=rmse, 
@@ -83,7 +82,6 @@ class NeuralNet():
         tic = time.time()
         for i in range(len(series_stack[self.arch['preprocess_type']])):
             series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
-            print(series)
             if series.category == 'train' or series.category == 'validation':
                 print('\nFitting series: ', i, ' out of:', len(series_stack[self.arch['preprocess_type']]))
                 X, Y = generator(self, series)
@@ -123,16 +121,17 @@ class NeuralNet():
         damage_states = []
         for i in range(len(series_stack[self.arch['preprocess_type']])):
             series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
-            X, Y = generator(self, series)
-            score = self.model.evaluate(
-                x = X,
-                y = Y,
-                batch_size = self.arch['batch_size'],
-                verbose = 1,
-                return_dict = True)
-            speeds.extend([series.speed['km/h']])
-            scores.extend([score['rmse']])
-            damage_states.extend([series.damage_state])
+            if series.category == 'test':
+                X, Y = generator(self, series)
+                score = self.model.evaluate(
+                    x = X,
+                    y = Y,
+                    batch_size = self.arch['batch_size'],
+                    verbose = 1,
+                    return_dict = True)
+                speeds.extend([series.speed['km/h']])
+                scores.extend([score['rmse']])
+                damage_states.extend([series.damage_state])
             
             #print(series, series.damage_state)
         results = {
@@ -248,20 +247,6 @@ def generator(self, batch):
     When there is not enough samples left to form a batch, the last batches will not be incorporated.
     TBD: in order to use several sensors, the sensor location needs to be included in the input
     '''
-
-def add_pattern(self, j, k, batch):
-    pattern_indices = np.arange(
-        k, # start
-        k+self.arch['delta']*self.arch['n_pattern_steps'], # end
-        self.arch['delta']) # step
-    target_indices = np.arange(
-        k+self.arch['delta']*self.arch['n_pattern_steps'],
-        k+self.arch['delta']*self.arch['n_pattern_steps'] + self.arch['delta']*self.arch['n_target_steps'],
-        self.arch['delta'])
-    peak_pattern = batch.peaks[self.arch['pattern_sensors'][j]][pattern_indices]
-    location_pattern = batch.delta[self.arch['pattern_sensors'][j]][pattern_indices]
-    peak_target = batch.peaks[self.arch['target_sensor']][target_indices]
-    return peak_pattern, location_pattern, peak_target
 
 def get_steps(self, series):
     steps = int(

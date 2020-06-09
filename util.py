@@ -267,6 +267,9 @@ def plot_forecast(forecast, manual, a):
             manual['stack'][a['preprocess_type']][key].data[i], 
             'r', 
             linewidth=0.4)
+        plt.xlabel('timesteps')
+        plt.ylabel('accelerations')
+        #plt.title('Forecast for response at '+str(manual['stack'][a['preprocess_type']][key].speed['km/h']+' km/h'))
         plt.legend(['Forecast', 'Signals']) 
     plt.savefig(fname = a['name']+'series'+str(manual['series_to_predict'])+'_forecast_plot.png')
     plt.show() 

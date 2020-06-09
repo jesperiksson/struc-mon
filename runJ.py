@@ -6,8 +6,8 @@ from util import *
 if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
-    use = 'MLP'
-    name = '2'
+    use = 'LSTM'
+    name = '1'
     #####################
 
     architecture = {
@@ -30,10 +30,12 @@ if __name__ == "__main__":
             'model' : 'single_layer',
             # Net configuration
             'bias' : True,
-            'n_pattern_steps' : 200, # Kan ändras
-            'n_target_steps' : 20,
-            'delta' : 10,
+            'n_pattern_steps' : 500, # Kan ändras
+            'n_target_steps' : 25,
+            'pattern_delta' : 10,
+            'delta' : 1,
             'n_units' : {'first' : 150, 'second' : 15},
+            'loss' : 'rmse',
             # Sensor parameters
             'pattern_sensors' : ['90'], # Indices must be used rahter than placements
             'target_sensor' : '90',
@@ -47,11 +49,16 @@ if __name__ == "__main__":
             'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
             'preprocess_type' : 'peaks',      
             'batch_size' : 25,
+            # Model saving
+            'save_periodically' : True,
+            'save_interval' : 10, # Number of series to train on before saving
             # Data interval
             'from' : 0,
             'to' : -1,
             # Classification
-            'limit' : 0.9
+            'limit' : 0.9,
+            # Plotting
+            'metric' : 'rmse'
         })
     elif use == 'LSTM':
         from LSTM import *
@@ -138,7 +145,6 @@ if __name__ == "__main__":
         This is special case where only healthy data is used for training and 
         all damaged data is used for testing.
         '''
-    #print(eval_series_stack)
     machine_stack = {}
     
     for i in range(len(architecture['target_sensors'])):
@@ -194,7 +200,7 @@ if __name__ == "__main__":
         prediction_score.update({
             keys[i] : {'scores' : scores, 'speeds' : speeds, 'damage_state' : damage_states}           
             })
-        #plot_forecast(forecast, prediction_manual, architecture)
+        plot_forecast(forecast, prediction_manual, architecture)
     plot_performance(prediction_score, architecture, 'forecast')
 
     
