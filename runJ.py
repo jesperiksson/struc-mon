@@ -7,7 +7,7 @@ if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
     use = 'LSTM'
-    name = '1'
+    name = '2'
     #####################
 
     architecture = {
@@ -201,8 +201,7 @@ if __name__ == "__main__":
             keys[i] : {'scores' : scores, 'speeds' : speeds, 'damage_state' : damage_states}           
             })
         plot_forecast(forecast, prediction_manual, architecture)
-    plot_performance(prediction_score, architecture, 'forecast')
-        plot_performance(
+    plot_performance(
         prediction_score,
         architecture,
         'forecast')
