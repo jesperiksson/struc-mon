@@ -149,7 +149,7 @@ if __name__ == "__main__":
     
     for i in range(len(architecture['target_sensors'])):
         architecture['target_sensor'] = architecture['target_sensors'][i]
-        name = architecture['name']+architecture['target_sensor']
+        name = architecture['name']
         try:
             f = open('models/'+name+'.json')
             machine_stack.update({
@@ -174,11 +174,14 @@ if __name__ == "__main__":
             score_stack.update({
                 keys[j] : NeuralNet.evaluation(machine_stack[name], eval_series_stack[keys[j]])
             })
+        score_stack.update({
+            keys[j] : NeuralNet.evaluation(machine_stack[name], train_series_stack)
+        }) # Adding the healthy series that are assigned to testing
         #print(score_stack)    
         
     plot_performance(score_stack, architecture, 'prediction')
     binary_prediction = get_binary_prediction(score_stack, architecture)
-    plot_confusion(binary_prediction, name)
+    plot_confusion(binary_prediction, name,'prediction')
     #plot_roc(binary_prediction)
     ########## PREDICTIONS #############
     prediction_score = {}
@@ -200,7 +203,7 @@ if __name__ == "__main__":
         prediction_score.update({
             keys[i] : {'scores' : scores, 'speeds' : speeds, 'damage_state' : damage_states}           
             })
-        plot_forecast(forecast, prediction_manual, architecture)
+        #plot_forecast(forecast, prediction_manual, architecture)
     plot_performance(
         prediction_score,
         architecture,

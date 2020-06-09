@@ -135,10 +135,10 @@ class NeuralNet():
             
             #print(series, series.damage_state)
         results = {
-            'scores' : scores[1:],
-            'speeds' : speeds[1:],
-            'steps' : len(speeds[1:]),
-            'damage_state' : damage_states[1:]
+            'scores' : scores[:],
+            'speeds' : speeds[:],
+            'steps' : len(speeds[:]),
+            'damage_state' : damage_states[:]
         }
         return results
 

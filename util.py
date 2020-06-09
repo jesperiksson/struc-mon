@@ -182,7 +182,7 @@ def plot_performance(score_stack, a, pod): # pod = prediction or forecast
     plt.savefig(fname = a['name']+pod+'_performance_plot.png')
     plt.show()
 
-def plot_confusion(prediction, name):
+def plot_confusion(prediction, name, pof):
     data = np.array(prediction['confusion_matrix'])
     print(data)
     text = np.asarray(
@@ -197,7 +197,7 @@ def plot_confusion(prediction, name):
         fmt='', 
         cbar = False,
         cmap = 'binary')
-    plt.savefig(fname = name+'_confusion_matrix.png')
+    plt.savefig(fname = name+pof+'_confusion_matrix.png')
     plt.show()
 
 def get_binary_prediction(score_stack, arch):
@@ -271,7 +271,7 @@ def plot_forecast(forecast, manual, a):
         plt.ylabel('accelerations')
         #plt.title('Forecast for response at '+str(manual['stack'][a['preprocess_type']][key].speed['km/h']+' km/h'))
         plt.legend(['Forecast', 'Signals']) 
-    plt.savefig(fname = a['name']+'series'+str(manual['series_to_predict'])+pod+'_plot.png')
+    plt.savefig(fname = a['name']+'series'+str(manual['series_to_predict'])+'_forecast_plot.png')
     plt.show() 
                  
 
