@@ -202,5 +202,17 @@ if __name__ == "__main__":
             })
         plot_forecast(forecast, prediction_manual, architecture)
     plot_performance(prediction_score, architecture, 'forecast')
+        plot_performance(
+        prediction_score,
+        architecture,
+        'forecast')
+    binary_forecast_prediction = get_binary_prediction(
+        prediction_score,
+        architecture)
+    plot_confusion(
+        binary_forecast_prediction,
+        name,
+        'forecast')
+
 
     

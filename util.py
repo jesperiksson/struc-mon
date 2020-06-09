@@ -271,7 +271,7 @@ def plot_forecast(forecast, manual, a):
         plt.ylabel('accelerations')
         #plt.title('Forecast for response at '+str(manual['stack'][a['preprocess_type']][key].speed['km/h']+' km/h'))
         plt.legend(['Forecast', 'Signals']) 
-    plt.savefig(fname = a['name']+'series'+str(manual['series_to_predict'])+'_forecast_plot.png')
+    plt.savefig(fname = a['name']+'series'+str(manual['series_to_predict'])+pod+'_plot.png')
     plt.show() 
                  
 
