@@ -74,42 +74,46 @@ class NeuralNet():
         self.score = None
         self.loss = [None]
 
-    def train(self, series_stack):
+    def train(self, series_stacks):
+        tic = time.time()
         self.history = [None]
         self.loss = [None]
         self.val_loss = [None]
-        print('\n Number of series being used for training:', len(series_stack[self.arch['preprocess_type']]), '\n')
-        tic = time.time()
-        for i in range(len(series_stack[self.arch['preprocess_type']])):
-            series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
-            if series.category == 'train' or series.category == 'validation':
-                print('\nFitting series: ', i, ' out of:', len(series_stack[self.arch['preprocess_type']]))
-                X, Y = generator(self, series)
-                patterns = {
-                    'speed_input' : np.array([series.normalized_speed]),
-                    'damage_input' : series.normalized_damage_state}
-                for j in range(len(self.arch['active_sensors'])):
-                    patterns.update({
-                        'accel_input_'+str(self.arch['pattern_sensors'][j]) : X # Ange vilken
-                    })
-                targets = {
-                    'accel_output_'+str(self.arch['pattern_sensors'][j]) : Y,
-                    'damage_state_output' : series.normalized_damage_state
-                    }           
-                history = self.model.fit(
-                    x = X,#patterns,
-                    y = Y,#targets, 
-                    batch_size = self.arch['batch_size'],
-                    epochs=self.arch['epochs'], 
-                    verbose=1,
-                    callbacks=self.early_stopping, #self.learning_rate_scheduler],
-                    validation_split = self.arch['data_split']['validation']/100,
-                    shuffle = True)
-                self.history.append(history)
-                self.loss.extend(history.history['loss'])
-                self.val_loss.extend(history.history['val_loss'])  
-                if self.arch['save_periodically'] == True and i % self.arch['save_interval'] == 0:
-                    save_model(self.model,self.name)  
+        keys = list(series_stacks.keys())
+        for h in range(len(keys)):
+            series_stack = series_stacks[keys[h]]
+            print('\nTraining on ', keys[h],'% healthy data.\n')
+            print('\n Number of series being used for training:', len(series_stack[self.arch['preprocess_type']]), '\n')
+            for i in range(len(series_stack[self.arch['preprocess_type']])):
+                series = series_stack[self.arch['preprocess_type']]['batch'+str(i)]
+                if series.category == 'train' or series.category == 'validation':
+                    print('\nFitting series: ', i, ' out of:', len(series_stack[self.arch['preprocess_type']]))
+                    X, Y = generator(self, series)
+                    patterns = {
+                        'speed_input' : np.array([series.normalized_speed]),
+                        'damage_input' : series.normalized_damage_state}
+                    for j in range(len(self.arch['active_sensors'])):
+                        patterns.update({
+                            'accel_input_'+str(self.arch['pattern_sensors'][j]) : X # Ange vilken
+                        })
+                    targets = {
+                        'accel_output_'+str(self.arch['pattern_sensors'][j]) : Y,
+                        'damage_state_output' : series.normalized_damage_state
+                        }           
+                    history = self.model.fit(
+                        x = X,#patterns,
+                        y = Y,#targets, 
+                        batch_size = self.arch['batch_size'],
+                        epochs=self.arch['epochs'], 
+                        verbose=1,
+                        callbacks=self.early_stopping, #self.learning_rate_scheduler],
+                        validation_split = self.arch['data_split']['validation']/100,
+                        shuffle = True)
+                    self.history.append(history)
+                    self.loss.extend(history.history['loss'])
+                    self.val_loss.extend(history.history['val_loss'])  
+                    if self.arch['save_periodically'] == True and i % self.arch['save_interval'] == 0:
+                        save_model(self.model,self.name)  
         self.model.summary()
         self.toc = np.round(time.time()-tic,1)
         print('Elapsed time: ', self.toc)
@@ -120,7 +124,7 @@ class NeuralNet():
         speeds = []
         damage_states = []
         for i in range(len(series_stack[self.arch['preprocess_type']])):
-            series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
+            series = series_stack[self.arch['preprocess_type']]['batch'+str(i)]
             if series.category == 'test':
                 X, Y = generator(self, series)
                 score = self.model.evaluate(
@@ -133,7 +137,6 @@ class NeuralNet():
                 scores.extend([score['rmse']])
                 damage_states.extend([series.damage_state])
             
-            #print(series, series.damage_state)
         results = {
             'scores' : scores[:],
             'speeds' : speeds[:],
@@ -166,63 +169,63 @@ class NeuralNet():
         return prediction
 
     def forecast(machines, manual):
-            # Machines
-            machine_keys = list(machines.keys())
-            # Shortcuts
-            machine = machines[machine_keys[0]]
-            delta = machine.arch['delta']
-            n_pattern_steps = machine.arch['n_pattern_steps']
-            n_target_steps = machine.arch['n_target_steps']
-            # Series
-            key = 'batch'+str(manual['series_to_predict']%len(manual['stack'][machine.arch['preprocess_type']]))
-            n_steps = manual['stack'][machine.arch['preprocess_type']][key].n_steps
-            series = manual['stack'][machine.arch['preprocess_type']][key]
-            n_series = int((n_steps-n_pattern_steps)/n_target_steps)
-            # Initial
-            initial_indices = np.arange(0,delta*n_pattern_steps,delta)
-            patterns = {}
-            for i in range(len(machine.arch['pattern_sensors'])):
-                patterns.update({ 
-                'accel_input_'+machine.arch['pattern_sensors'][i] : 
-                    np.reshape(
-                        series.data[machine.sensor_to_predict][initial_indices], 
-                        [1,machine.arch['n_pattern_steps']]
-                    )
-                })
-            forecasts = patterns.copy()
-            evaluation = {}
-            for i in range(n_series+1):
-                old_patterns = patterns.copy()
-                for j in range(len(machine_keys)):
-                    machine = machines[machine_keys[j]] # Pick machine
-                    prediction = machine.model.predict(
-                        old_patterns,
-                        batch_size = 1, 
-                        verbose=0,
-                        steps = 1) # Make prediction with machine
-                    pattern = patterns['accel_input_'+machine.arch['pattern_sensors'][j]] # Extract pattern
-                    pattern = np.delete(pattern,np.s_[0:n_target_steps:delta],1) # Remove first entty
-                    pattern = np.hstack([pattern,prediction]) # Add prediciton last
-                    patterns.update({
-                        'accel_input_'+machine.arch['pattern_sensors'][j] : pattern
-                        }) # Update patterns dicr
-                    forecast = forecasts['accel_input_'+machine.arch['pattern_sensors'][j]] #Extract forecast
-                    if i == n_series: # Edge case for last bit                   
-                        forecast = np.hstack(
-                            [forecast,
-                            prediction[:,:n_steps%(n_series*n_target_steps+n_pattern_steps)]]
-                            ) # Update forecast
-                    else:
-                        forecast = np.hstack([forecast,prediction]) # Update forecast
-                    forecasts.update({
-                        'accel_input_'+machine.arch['pattern_sensors'][j] : forecast
-                        }) # Update forecasts dict
-            score = rmse_np(
-                series.data[j][n_pattern_steps:], 
-                forecasts['accel_input_'+machine.arch['pattern_sensors'][j]][0][n_pattern_steps:])
-            speed = series.speed['km/h']
-            damage_state = series.damage_state
-            return forecasts, (score, speed, damage_state)
+        # Machines
+        machine_keys = list(machines.keys())
+        # Shortcuts
+        machine = machines[machine_keys[0]]
+        delta = machine.arch['delta']
+        n_pattern_steps = machine.arch['n_pattern_steps']
+        n_target_steps = machine.arch['n_target_steps']
+        # Series
+        key = 'batch'+str(manual['series_to_predict']%len(manual['stack'][machine.arch['preprocess_type']]))
+        n_steps = manual['stack'][machine.arch['preprocess_type']][key].n_steps
+        series = manual['stack'][machine.arch['preprocess_type']][key]
+        n_series = int((n_steps-n_pattern_steps)/n_target_steps)
+        # Initial
+        initial_indices = np.arange(0,delta*n_pattern_steps,delta)
+        patterns = {}
+        for i in range(len(machine.arch['pattern_sensors'])):
+            patterns.update({ 
+            'accel_input_'+machine.arch['pattern_sensors'][i] : 
+                np.reshape(
+                    series.data[machine.sensor_to_predict][initial_indices], 
+                    [1,machine.arch['n_pattern_steps']]
+                )
+            })
+        forecasts = patterns.copy()
+        evaluation = {}
+        for i in range(n_series+1):
+            old_patterns = patterns.copy()
+            for j in range(len(machine_keys)):
+                machine = machines[machine_keys[j]] # Pick machine
+                prediction = machine.model.predict(
+                    old_patterns,
+                    batch_size = 1, 
+                    verbose=0,
+                    steps = 1) # Make prediction with machine
+                pattern = patterns['accel_input_'+machine.arch['pattern_sensors'][j]] # Extract pattern
+                pattern = np.delete(pattern,np.s_[0:n_target_steps:delta],1) # Remove first entty
+                pattern = np.hstack([pattern,prediction]) # Add prediciton last
+                patterns.update({
+                    'accel_input_'+machine.arch['pattern_sensors'][j] : pattern
+                    }) # Update patterns dict
+                forecast = forecasts['accel_input_'+machine.arch['pattern_sensors'][j]] #Extract forecast
+                if i == n_series: # Edge case for last bit                   
+                    forecast = np.hstack(
+                        [forecast,
+                        prediction[:,:n_steps%(n_series*n_target_steps+n_pattern_steps)]]
+                        ) # Update forecast
+                else:
+                    forecast = np.hstack([forecast,prediction]) # Update forecast
+                forecasts.update({
+                    'accel_input_'+machine.arch['pattern_sensors'][j] : forecast
+                    }) # Update forecasts dict
+        score = rmse_np(
+            series.data[j][n_pattern_steps:], 
+            forecasts['accel_input_'+machine.arch['pattern_sensors'][j]][0][n_pattern_steps:])
+        speed = series.speed['km/h']
+        damage_state = series.damage_state
+        return forecasts, (score, speed, damage_state)
 
 def generator(self, batch):
     '''

@@ -1,104 +1,226 @@
-# Modules
-import numpy as np
-import tensorflow as tf
-from tensorflow import keras
-import matplotlib.pyplot as plt
-from scipy.io import loadmat
 # Class files
-''' Imported when needed
-from LSTM import * 
-from MLP import *
-from LSTMbatch import *
-'''
+from Databatch import *
 # Utility file
 from util import *
 
 if __name__ == "__main__":
-    # Model
+    # Which model to use (MLP or LSTM):
+    #####################
+    use = 'LSTM'
+    name = ''
+    #####################
+
     architecture = {
-        'prediction' : 'end_of_series', # end_of_series or entire_series
-        'model_type' : 'MLP', # MLP, LSTM or AutoencoderLSTM
-        'direction' : 'uni', # uni or bi (uni a.k.a. vanilla net)
-        'n_layers' : 1,
-        'n_units' : [30, 15],
-        'target' : 'accelerations', # E or accelerations
-        'bias' : True,
-# Metadata
-        'elements' : [10, 45, 68, 90, 112, 135, 170],
-        'healthy' : [33, 43, 52 , 62, 71, 81, 90, 100],
-        'sensors' : [10, 45, 90, 135, 170],
-        'speeds' : 20,
-        'data_split' : [60, 20, 20], # sorting of data into training testing and validation
-# MLP-specific settings
-        'delta' : 4,
-        'n_pattern_steps' : 10,
-        'n_target_steps' : 1,
-        'MLPactivation' : 'tanh',
-# LSTM-specific settings
-        'LSTMactivation' : 'tanh'
-    }
-    early_stopping = True
-    # Data
-    elements = [90]#[10, 45, 68, 90, 112, 135, 170]
-    healthy = [100]#[33, 43, 52 , 62, 71, 81, 90, 100]
-    sensors = [10, 45, 90, 135, 170]
-       
+        'name' :use + name,
+        'active_sensors' : ['90'],
+        'predict' : 'accelerations', # accelerations or damage
+        'path' : 'our_measurements3/e90/',
+        'random_mode' : 'test' # test or debug
+        }
+    sensor_dict = {}
+    for i in range(len(architecture['active_sensors'])):
+        sensor_dict.update({
+            architecture['active_sensors'][i] : i
+            })
+    architecture.update({
+        'sensors' : sensor_dict
+        })
+    plotting = {
+        'prediction_performance' : True,
+        'prediction_confusion_matrix' : True,
+        'prediction_roc' : True,
+        'forecast_performance' : True,
+        'forecast_confusion_matrix' : True
+        }
 
-
-    # Training
-    epochs = 20
-
-    # Plotting
-    do_plot_loss= True  
-
-
-    if architecture['model_type'] == 'MLP':
+    if use == 'MLP':
         from MLP import *
-    elif architecture['model_type'] == 'LSTM':
+        architecture.update({
+            'model' : 'single_layer',
+            # Net configuration
+            'bias' : True,
+            'n_pattern_steps' : 500, # Kan ändras
+            'n_target_steps' : 25,
+            'pattern_delta' : 10,
+            'delta' : 1,
+            'n_units' : {'first' : 150, 'second' : 15},
+            'loss' : 'rmse',
+            # Sensor parameters
+            'pattern_sensors' : ['90'], 
+            'target_sensor' : '90',
+            'target_sensors' : ['90'],
+            # Training parameters
+            'Dense_activation' : 'tanh',
+            'epochs' : 50,
+            'patience' : 10,
+            'early_stopping' : True,
+            'learning_rate' : 0.001, # 0.001 by default
+            'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
+            'preprocess_type' : 'peaks',      
+            'batch_size' : 25,
+            # Model saving
+            'save_periodically' : True,
+            'save_interval' : 10, # Number of series to train on before saving
+            # Data interval
+            'from' : 0,
+            'to' : -1,
+            # Classification
+            'limit' : 0.9,
+            # Plotting
+            'metric' : 'rmse'
+        })
+    elif use == 'LSTM':
         from LSTM import *
-    elif architecture['model_type'] == 'AELSTM':
+        architecture.update({
+            'model' : 'single_layer',
+            # Net configuaration
+            'n_units' : {'first' : 150, 'second' : 100},
+            'bias' : True,
+            'n_pattern_steps' : 250, # Kan ändras
+            'n_target_steps' : 100,
+            'pattern_delta' : 25,
+            # Sensor parameters
+            'pattern_sensors' : ['90'],
+            'target_sensor' : '90',
+            'target_sensors' : ['90'],
+            # Training parameters
+            'batch_size' : 10,
+            'data_split' : {'train':40, 'validation':20, 'test':40}, # sorting of data 
+            'mode' : '1',
+            'delta' : 1, # Kan ändras
+            'Dense_activation' : 'tanh',
+            'early_stopping' : True,
+            'epochs' : 200,
+            'learning_rate' : 0.001, # 0.001 by default
+            'min_delta' : 0.01,
+            'LSTM_activation' : 'tanh',
+            'preprocess_type' : 'peaks',
+            'patience' : 15,
+            # Data interval
+            'from' : 0,
+            'to' : -1,
+            # Model saving
+            'save_periodically' : True,
+            'save_interval' : 10, # Number of series to train on before saving
+            # Classification
+            'limit' : 0.9
+        })
+    elif use == 'AELSTM':
         from AELSTM import *
+        architecture.update({
+            'n_units' : {'first': 800, 'second': 200, 'third' : 40, 'fourth': 20},
+            'bias' : True,
+            'speeds' : 20,
+            'epochs' : 10,
+            'data_split' : {'train':40, 'validation':20, 'test':40}, # sorting of data 
+            'preprocess_type' : 'data',
+            'delta' : 1, # Kan ändras
+            'n_pattern_steps' : 400, # Kan ändras
+            'batch_size' : 16,
+            'n_target_steps' : 400,
+            'pattern_delta' : 50,
+            'Dense_activation' : 'tanh',
+            'LSTM_activation' : 'tanh',
+            'learning_rate_schedule' : False,
+            'pattern_sensors' : ['90'], 
+            'target_sensor' : '90',
+            'target_sensors' : ['90'],
+            'learning_rate' : 0.01, # 0.001 by default
+            'early_stopping' : True,
+            'latent_dim' : {'first' : 400, 'second' : 200, 'third' : 40}, 
+            'from' : 0,
+            'to' : -1,
+            # Model saving
+            'save_periodically' : True,
+            'save_interval' : 10 # Number of series to train on before saving
+        })
+   
+    if architecture['mode'] == '1':
+        series_stack = data_split_mode1(architecture)
+        '''
+        This is the normal case where all available data is divided into train/ test/ validation
+        '''
 
-    batchStacks = {
-    'H' : fit_to_NN(architecture['data_split'],'measurements/H/'),
-    '5070' : fit_to_NN(architecture['data_split'],'measurements/D_50%_70/'),
-    '5090' : fit_to_NN(architecture['data_split'],'measurements/D_50%_90/'),
-    '7090' : fit_to_NN(architecture['data_split'],'measurements/D_70%_90/'),
-    }
+    elif architecture['mode'] == '2':
+        series_stack = data_split_mode2(architecture)
+        '''
+        This is special case where only healthy data is used for training and 
+        all damaged data is used for testing.
+        '''
     machine_stack = {}
-    scoreStacks = {}
-    sensor_to_predict = [0]
-    for i in range(len(sensor_to_predict)):
-        name = 'MLPmodel3_3_bias_10_'+str(sensor_to_predict[i])
+    
+    for i in range(len(architecture['target_sensors'])):
+        architecture['target_sensor'] = architecture['target_sensors'][i]
+        name = architecture['name']
         try:
             f = open('models/'+name+'.json')
             machine_stack.update({
                 name : NeuralNet(architecture,
                      name,
-                     early_stopping,
-                     existing_model = True,
-                     sensor_to_predict = i)
+                     existing_model = True)
             })
         except IOError:    
             machine_stack.update({
                 name : NeuralNet(architecture,
                      name,
-                     early_stopping,
-                     existing_model = False,
-                     sensor_to_predict = i)
+                     existing_model = False)
             })
-            NeuralNet.train_measurements(machine_stack[name], batchStacks['H'], epochs)
-            NeuralNet.evaluation(machine_stack[name], batchStacks['H'])
-            plot_loss(machine_stack[name], do_plot_loss)
+            NeuralNet.train(machine_stack[name], series_stack)  
             save_model(machine_stack[name].model, name)
+            plot_loss(machine_stack[name], name)  
         
-        scoreStacks.update({sensor_to_predict[i] : {
-        'H' : NeuralNet.evaluation_batch(machine_stack[name], batchStacks['H']),
-        '5070' : NeuralNet.evaluation_batch(machine_stack[name], batchStacks['5070']),
-        '5090' : NeuralNet.evaluation_batch(machine_stack[name], batchStacks['5090']),
-        '7090' : NeuralNet.evaluation_batch(machine_stack[name], batchStacks['7090'])
-        }})
-    #plot_performance(scoreStacks)
-    prediction, hindsight = NeuralNet.prediction(machine_stack[name], batchStacks['7090'], 200)
-    plot_prediction(machine_stack[name],prediction, 200, hindsight)
+        score_stack = {}
+        keys = list(series_stack)
+        
+        for j in range(len(keys)):
+            score_stack.update({
+                #keys[j] : NeuralNet.evaluation(machine_stack[name], series_stack[keys[j]])
+            })
+    if plotting['prediction_performance'] == True:  
+        plot_performance(score_stack, architecture, 'prediction')
+    if plotting['prediction_confusion_matrix'] == True:
+        binary_prediction = get_binary_prediction(score_stack, architecture)
+        plot_confusion(binary_prediction, name,'prediction')
+    if plotting['prediction_roc'] == True:
+        plot_roc(binary_prediction)
+    ########## PREDICTIONS #############
+    prediction_score = {}
+    for i in range(len(keys)):
+        #print(series_stack[keys[i]])
+        scores = []
+        speeds = []
+        damage_states = []
+        for j in range(len(series_stack[keys[i]][architecture['preprocess_type']])):
+            if series_stack[keys[i]][architecture['preprocess_type']]['batch'+str(j)].category == 'test':
+                prediction_manual = {
+                    'series_to_predict' : j,
+                    'stack' : series_stack[keys[i]]
+                }
+                #prediction = NeuralNet.prediction(machine_stack[name], prediction_manual)
+                #plot_prediction(prediction, prediction_manual, use)
+                forecast, tup = NeuralNet.forecast(machine_stack, prediction_manual)
+                scores.extend([tup[0]])
+                speeds.extend([tup[1]])
+                damage_states.extend([tup[2]])
+            else:
+                continue
+        prediction_score.update({
+            keys[i] : {'scores' : scores, 'speeds' : speeds, 'damage_state' : damage_states}           
+            })
+        #plot_forecast(forecast, prediction_manual, architecture)
+    if plotting['forecast_performance'] == True:
+        plot_performance(
+            prediction_score,
+            architecture,
+            'forecast')
+    if plotting['forecast_confusion_matrix'] == True:
+        binary_forecast_prediction = get_binary_prediction(
+            prediction_score,
+            architecture)
+        plot_confusion(
+            binary_forecast_prediction,
+            name,
+            'forecast')
 
+
+    

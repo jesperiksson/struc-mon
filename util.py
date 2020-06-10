@@ -27,8 +27,10 @@ def fit_to_NN(
     for i in range(len(arch['active_sensors'])):
         paths.update(
             {arch['active_sensors'][i] : path+'s'+arch['active_sensors'][i]+'/'})
-
-    seed = 1#random.randint(0,10000)
+    if arch['random_mode'] == 'debug':
+        seed = 1
+    elif arch['random_mode'] == 'test':
+        seed = random.randint(0,10000)
     file_list = os.listdir(paths[arch['active_sensors'][0]])
     file_list.sort()
     random.Random(seed).shuffle(file_list)
@@ -43,7 +45,7 @@ def fit_to_NN(
             print('error')
     normalized_speeds = (speeds-min(speeds))/(max(speeds)-min(speeds))
 
-    n_files = int(len(file_list)/1)
+    n_files = len(file_list)
     data_stack = {}
     preprocess_stack = {}
     peaks_stack = {}
@@ -58,9 +60,9 @@ def fit_to_NN(
             mat = h5py.File(paths[arch['active_sensors'][j]] + file_list[i], 'r')
             data[j] = mat.get('acc')[1,start:to]
 
-        if i/n_files <= data_split['train']/100:
+        if i/n_files < (data_split['train']/100):
             category = 'train'
-        elif i/n_files > data_split['validation']/100 and i/n_files <= (data_split['train']+data_split['validation'])/100:
+        elif i/n_files > (data_split['validation']/100) and i/n_files < ((data_split['train']+data_split['validation'])/100):
             category = 'validation'
         else:
             category = 'test'
@@ -110,30 +112,39 @@ def fit_to_NN(
 
     return preprocess_stack
 
-def get_train_series(a):
-    eval_series_stack = {}
+def data_split_mode2(a):
+    series_stack = {}
     damage_dir_list = os.listdir(a['path'])
     for j in range(len(damage_dir_list)):
-        eval_series_stack.update({
+        series_stack.update({
             damage_dir_list[j] : fit_to_NN(
                 a['data_split'],
                 a['path']+'/'+damage_dir_list[j]+'/', 
                 int(damage_dir_list[j][:-1]),
                 a)
             })
-    return train_series_stack
+    return series_stack
 
-def get_eval_series(data_split, a):
+def data_split_mode1(a):
     eval_series_stack = {}
     damage_dir_list = os.listdir(a['path'])
     for j in range(len(damage_dir_list)):
-        eval_series_stack.update({
-            damage_dir_list[j] : fit_to_NN(
-                data_split,
-                a['path']+'/'+damage_dir_list[j]+'/',
-                int(damage_dir_list[j][:-1]),
-                a)
-            })
+        if damage_dir_list[j] == '100%':
+            eval_series_stack.update({
+                damage_dir_list[j] : fit_to_NN(
+                    a['data_split'],
+                    a['path']+'/'+damage_dir_list[j]+'/',
+                    int(damage_dir_list[j][:-1]),
+                    a)
+                })
+        else:
+            eval_series_stack.update({
+                damage_dir_list[j] : fit_to_NN(
+                    {'train' : 0, 'validation' : 0, 'test' : 100},
+                    a['path']+'/'+damage_dir_list[j]+'/',
+                    int(damage_dir_list[j][:-1]),
+                    a)
+                })
     return eval_series_stack
 
 def save_model(model,name):
@@ -159,25 +170,18 @@ def plot_performance(score_stack, a, pod): # pod = prediction or forecast
     cmap = plt.cm.rainbow
     norm = colors.Normalize(vmin=33,vmax=100)
     percentage_keys = list(score_stack)
-    print(len(percentage_keys))
     for i in range(len(percentage_keys)): # Iterates over percentages
-        for j in range(len(score_stack[percentage_keys[i]])):
-            try:
-                plt.plot(score_stack[percentage_keys[i]]['speeds'][j], 
-                         score_stack[percentage_keys[i]]['scores'][j], 
-                         color=cmap(norm(score_stack[percentage_keys[i]]['damage_state'][j])), 
-                         marker='o')
-            except TypeError:
-                plt.plot(score_stack[percentage_keys[i]]['speeds'][j], 
-                         score_stack[percentage_keys[i]]['scores'][j], 
-                         color=cmap(norm(score_stack[percentage_keys[i]]['damage_state'])), 
-                         marker='o')
-
+        for j in range(len(score_stack[percentage_keys[i]]['speeds'])):
+            plt.plot(score_stack[percentage_keys[i]]['speeds'][j], 
+                     score_stack[percentage_keys[i]]['scores'][j], 
+                     color=cmap(norm(score_stack[percentage_keys[i]]['damage_state'][j])), 
+                     marker='o')
     plt.xlabel('Speed [km/h]')
     plt.ylabel('Root Mean Square Error')
     plt.title('Sample scores for '+pod+' at sensor ' + str(a['target_sensor']))
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    plt.colorbar(sm)
+    cbar = plt.colorbar(sm)
+    cbar.set_label('Young\'s modulus percentage', rotation=270)
     plt.legend()
     plt.savefig(fname = a['name']+pod+'_performance_plot.png')
     plt.show()
@@ -204,6 +208,7 @@ def get_binary_prediction(score_stack, arch):
     damage_cases = list(score_stack.keys())
     phi = np.empty(1)
     labels = np.empty(1)
+    print('\n',score_stack['100%']['scores'],'\n')
     mu = np.mean(score_stack['100%']['scores'])
     sigma = np.sqrt(np.var(score_stack['100%']['scores']))
     for i in range(len(damage_cases)):
@@ -217,6 +222,7 @@ def get_binary_prediction(score_stack, arch):
         'Phi' : phi[1:],
         'prediction' : prediction[1:],
         'labels' : labels[1:]}
+    print(confusion_matrix(prediction_dict['prediction'],prediction_dict['labels']))
     prediction_dict.update(
         {'confusion_matrix' : confusion_matrix(prediction_dict['prediction'],prediction_dict['labels'])}
         )
@@ -253,7 +259,6 @@ def plot_prediction(prediction, manual, net):
 
 def plot_forecast(forecast, manual, a):
     key = 'batch'+str(manual['series_to_predict'])
-    #print(forecast)
     forecast_keys = list(forecast.keys())
     for i in range(len(forecast_keys)): 
         plt.subplot(len(forecast_keys),1,i+1)
