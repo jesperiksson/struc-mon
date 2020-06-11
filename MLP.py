@@ -76,43 +76,46 @@ class NeuralNet():
         self.model = model
         self.score = None
 
-    def train(self, series_stack):
+    def train(self, series_stacks):
+        tic = time.time()
         self.history = [None]
         self.loss = [None]
         self.val_loss = [None]
-        print('\n Number of series being used for training:', len(series_stack[self.arch['preprocess_type']]), '\n')
-        tic = time.time()
-        for i in range(len(series_stack[self.arch['preprocess_type']])):
-            series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
-            print(series)
-            if series.category == 'train' or series.category == 'validation':
-                print('\nFitting series: ', i, ' out of:', len(series_stack[self.arch['preprocess_type']]))
-                X, Y = generator(self, series)
-                patterns = {
-                    'speed_input' : np.array([series.normalized_speed]),
-                    'damage_input' : series.normalized_damage_state}
-                for j in range(len(self.arch['active_sensors'])):
-                    patterns.update({
-                        'accel_input_'+str(self.arch['pattern_sensors'][j]) : X # Ange vilken
-                    })
-                targets = {
-                    'accel_output_'+str(self.arch['pattern_sensors'][j]) : Y,
-                    'damage_state_output' : series.normalized_damage_state
-                    }           
-                history = self.model.fit(
-                    x = X,#patterns,
-                    y = Y,#targets, 
-                    batch_size = self.arch['batch_size'],
-                    epochs=self.arch['epochs'], 
-                    verbose=1,
-                    callbacks=self.early_stopping, #self.learning_rate_scheduler],
-                    validation_split = self.arch['data_split']['validation']/100,
-                    shuffle = True)
-                self.history.append(history)
-                self.loss.extend(history.history['loss'])
-                self.val_loss.extend(history.history['val_loss'])  
-                if self.arch['save_periodically'] == True and i % self.arch['save_interval'] == 0:
-                    save_model(self.model,self.name)  
+        keys = list(series_stacks.keys())
+        for h in range(len(keys)):
+            series_stack = series_stacks[keys[h]]
+            print('\nTraining on ', keys[h],'% healthy data.\n')
+            print('\n Number of series being used for training:', len(series_stack[self.arch['preprocess_type']]), '\n')
+            for i in range(len(series_stack[self.arch['preprocess_type']])):
+                series = series_stack[self.arch['preprocess_type']]['batch'+str(i)]
+                if series.category == 'train' or series.category == 'validation':
+                    print('\nFitting series: ', i, ' out of:', len(series_stack[self.arch['preprocess_type']]))
+                    X, Y = generator(self, series)
+                    patterns = {
+                        'speed_input' : np.array([series.normalized_speed]),
+                        'damage_input' : series.normalized_damage_state}
+                    for j in range(len(self.arch['active_sensors'])):
+                        patterns.update({
+                            'accel_input_'+str(self.arch['pattern_sensors'][j]) : X # Ange vilken
+                        })
+                    targets = {
+                        'accel_output_'+str(self.arch['pattern_sensors'][j]) : Y,
+                        'damage_state_output' : series.normalized_damage_state
+                        }           
+                    history = self.model.fit(
+                        x = X,#patterns,
+                        y = Y,#targets, 
+                        batch_size = self.arch['batch_size'],
+                        epochs=self.arch['epochs'], 
+                        verbose=1,
+                        callbacks=self.early_stopping, #self.learning_rate_scheduler],
+                        validation_split = self.arch['data_split']['validation']/100,
+                        shuffle = True)
+                    self.history.append(history)
+                    self.loss.extend(history.history['loss'])
+                    self.val_loss.extend(history.history['val_loss'])  
+                    if self.arch['save_periodically'] == True and i % self.arch['save_interval'] == 0:
+                        save_model(self.model,self.name)  
         self.model.summary()
         self.toc = np.round(time.time()-tic,1)
         print('Elapsed time: ', self.toc)
@@ -123,7 +126,7 @@ class NeuralNet():
         speeds = []
         damage_states = []
         for i in range(len(series_stack[self.arch['preprocess_type']])):
-            series = series_stack[self.arch['preprocess_type']]['batch'+str(i%len(series_stack))]
+            series = series_stack[self.arch['preprocess_type']]['batch'+str(i)]
             if series.category == 'test':
                 X, Y = generator(self, series)
                 score = self.model.evaluate(
@@ -133,15 +136,14 @@ class NeuralNet():
                     verbose = 1,
                     return_dict = True)
                 speeds.extend([series.speed['km/h']])
-                scores.extend([score[self.arch['metric']]])
+                scores.extend([score['rmse']])
                 damage_states.extend([series.damage_state])
             
-            #print(series, series.damage_state)
         results = {
-            'scores' : scores[1:],
-            'speeds' : speeds[1:],
-            'steps' : len(speeds[1:]),
-            'damage_state' : damage_states[1:]
+            'scores' : scores[:],
+            'speeds' : speeds[:],
+            'steps' : len(speeds[:]),
+            'damage_state' : damage_states[:]
         }
         return results
 
@@ -245,7 +247,6 @@ def generator(self, batch):
             target_finish = k*self.arch['pattern_delta']+self.arch['delta']*(self.arch['n_pattern_steps']+self.arch['n_target_steps'])
             X[k,:,j] = batch.data[j][pattern_start:pattern_finish]
             Y[k,:] = batch.data[j][target_start:target_finish]
-    print(np.shape(X), np.shape(Y))
     return X, Y
     '''
     Generates inputs with shape [n_batches, n_timesteps, features]
@@ -272,7 +273,7 @@ def set_up_model3(arch):
     
     accel_input = Input(
         shape=(arch['n_pattern_steps'], ),
-        name='accel_input_90')
+        name='accel_input_'+arch['target_sensor'])
 
     hidden_1 = Dense(
         arch['n_units']['first'],

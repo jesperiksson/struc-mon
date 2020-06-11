@@ -7,12 +7,12 @@ if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
     use = 'MLP'
-    name = 'A'
+    name = 'D'
     #####################
 
     architecture = {
         'name' :use + name,
-        'active_sensors' : ['90'],
+        'active_sensors' : ['45'],
         'predict' : 'accelerations', # accelerations or damage
         'path' : 'our_measurements3/e90/',
         'random_mode' : 'test' # test or debug
@@ -46,9 +46,9 @@ if __name__ == "__main__":
             'n_units' : {'first' : 150, 'second' : 15},
             'loss' : 'rmse',
             # Sensor parameters
-            'pattern_sensors' : ['90'], 
-            'target_sensor' : '90',
-            'target_sensors' : ['90'],
+            'pattern_sensors' : ['45'], 
+            'target_sensor' : '45',
+            'target_sensors' : ['45'],
             # Training parameters
             'Dense_activation' : 'tanh',
             'epochs' : 50,
@@ -57,7 +57,7 @@ if __name__ == "__main__":
             'learning_rate' : 0.001, # 0.001 by default
             'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
             'mode' : '1',
-            'preprocess_type' : 'peaks',      
+            'preprocess_type' : 'data',      
             'batch_size' : 25,
             # Model saving
             'save_periodically' : True,
