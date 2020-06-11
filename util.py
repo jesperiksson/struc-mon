@@ -188,7 +188,6 @@ def plot_performance(score_stack, a, pod): # pod = prediction or forecast
 
 def plot_confusion(prediction, name, pof):
     data = np.array(prediction['confusion_matrix'])
-    print(data)
     text = np.asarray(
         [['True Negatives','False Positives'],
         ['False Negatives','True Positives']]
@@ -208,7 +207,6 @@ def get_binary_prediction(score_stack, arch):
     damage_cases = list(score_stack.keys())
     phi = np.empty(1)
     labels = np.empty(1)
-    print('\n',score_stack['100%']['scores'],'\n')
     mu = np.mean(score_stack['100%']['scores'])
     sigma = np.sqrt(np.var(score_stack['100%']['scores']))
     for i in range(len(damage_cases)):
@@ -222,7 +220,6 @@ def get_binary_prediction(score_stack, arch):
         'Phi' : phi[1:],
         'prediction' : prediction[1:],
         'labels' : labels[1:]}
-    print(confusion_matrix(prediction_dict['prediction'],prediction_dict['labels']))
     prediction_dict.update(
         {'confusion_matrix' : confusion_matrix(prediction_dict['prediction'],prediction_dict['labels'])}
         )

@@ -6,8 +6,8 @@ from util import *
 if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
-    use = 'LSTM'
-    name = ''
+    use = 'MLP'
+    name = 'A'
     #####################
 
     architecture = {
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     plotting = {
         'prediction_performance' : True,
         'prediction_confusion_matrix' : True,
-        'prediction_roc' : True,
+        'prediction_roc' : False, # To be implemented
         'forecast_performance' : True,
         'forecast_confusion_matrix' : True
         }
@@ -56,6 +56,7 @@ if __name__ == "__main__":
             'early_stopping' : True,
             'learning_rate' : 0.001, # 0.001 by default
             'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
+            'mode' : '1',
             'preprocess_type' : 'peaks',      
             'batch_size' : 25,
             # Model saving
@@ -174,7 +175,7 @@ if __name__ == "__main__":
         
         for j in range(len(keys)):
             score_stack.update({
-                #keys[j] : NeuralNet.evaluation(machine_stack[name], series_stack[keys[j]])
+                keys[j] : NeuralNet.evaluation(machine_stack[name], series_stack[keys[j]])
             })
     if plotting['prediction_performance'] == True:  
         plot_performance(score_stack, architecture, 'prediction')
