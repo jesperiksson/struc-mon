@@ -6,8 +6,9 @@ import scipy.stats as stats
 import seaborn as sn
 from sklearn.metrics import roc_curve, confusion_matrix, plot_confusion_matrix
 import os
-import h5py
 import random
+import h5py
+import os
 import pandas as pd
 
 # Classes
@@ -214,14 +215,14 @@ def get_binary_prediction(score_stack, arch):
         if damage_cases[i] == '100%':
             labels = np.append(labels, np.zeros(len(score_stack[damage_cases[i]]['scores'])),axis=0)    
         else: 
-            labels = np.append(labels, np.ones(len(score_stack[damage_cases[i]]['scores'])),axis=0) 
+            labels = np.append(labels, np.ones(len(score_stack[damage_cases[i]]['scores'])),axis=0)
     prediction = np.heaviside(phi-arch['limit'], 1)
     prediction_dict = {
         'Phi' : phi[1:],
         'prediction' : prediction[1:],
         'labels' : labels[1:]}
     prediction_dict.update(
-        {'confusion_matrix' : confusion_matrix(prediction_dict['prediction'],prediction_dict['labels'])}
+        {'confusion_matrix' : confusion_matrix(prediction_dict['labels'],prediction_dict['prediction'])}
         )
     return prediction_dict
 

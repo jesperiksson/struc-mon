@@ -41,6 +41,7 @@ class NeuralNet():
             'test' : set_up_model_test(arch),
             'single_layer' : set_up_model6(arch),
             'two_layer' : set_up_model7(arch),
+            'three_layer' : set_up_model10(arch),
             'single_layer_bidirectional' : set_up_model8(arch)
             }     
         if self.existing_model == False:
@@ -459,4 +460,60 @@ def set_up_model9(arch):
         name='damage_state_output')(hidden_lstm_1)
 
     model = Model(inputs = accel_input, outputs = output)
+    return model
+
+######################################################################################################
+def set_up_model10(arch):
+
+    accel_input = Input(
+        shape=(
+            arch['n_pattern_steps'], 
+            1),
+        name = 'accel_input_90')
+
+    hidden_lstm_1 = LSTM(
+        arch['n_units']['first'],
+        batch_input_shape = (
+            arch['batch_size'],
+            arch['n_pattern_steps'],
+            1),
+        activation = arch['LSTM_activation'],
+        recurrent_activation = 'hard_sigmoid',
+        use_bias = arch['bias'],
+        dropout = 0.1,
+        return_sequences = True,
+        stateful = False)(accel_input)
+
+    hidden_lstm_2 = LSTM(
+        arch['n_units']['second'],
+        batch_input_shape = (
+            arch['batch_size'],
+            arch['n_pattern_steps'],
+            1),
+        activation = arch['LSTM_activation'],
+        recurrent_activation = 'hard_sigmoid',
+        use_bias = arch['bias'],
+        dropout = 0.1,
+        return_sequences = True,
+        stateful = False)(hidden_lstm_1)
+
+    hidden_lstm_3 = LSTM(
+        arch['n_units']['third'],
+        batch_input_shape = (
+            arch['batch_size'],
+            arch['n_pattern_steps'],
+            1),
+        activation = arch['LSTM_activation'],
+        recurrent_activation = 'hard_sigmoid',
+        use_bias = arch['bias'],
+        dropout = 0.1,
+        stateful = False)(hidden_lstm_2)
+
+    output = Dense(
+        arch['n_target_steps'], 
+        activation='tanh', 
+        name='peak_output_90')(hidden_lstm_3)
+
+    model = Model(inputs = accel_input, outputs = output)
+
     return model

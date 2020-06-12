@@ -6,13 +6,13 @@ from util import *
 if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
-    use = 'MLP'
-    name = 'D'
+    use = 'AELSTM'
+    name = 'i'
     #####################
 
     architecture = {
         'name' :use + name,
-        'active_sensors' : ['45'],
+        'active_sensors' : ['90'],
         'predict' : 'accelerations', # accelerations or damage
         'path' : 'our_measurements3/e90/',
         'random_mode' : 'test' # test or debug
@@ -73,30 +73,30 @@ if __name__ == "__main__":
     elif use == 'LSTM':
         from LSTM import *
         architecture.update({
-            'model' : 'single_layer',
+            'model' : 'three_layer',
             # Net configuaration
-            'n_units' : {'first' : 150, 'second' : 100},
+            'n_units' : {'first' : 300, 'second' : 150, 'third' : 100},
             'bias' : True,
-            'n_pattern_steps' : 250, # Kan ändras
-            'n_target_steps' : 100,
-            'pattern_delta' : 25,
+            'n_pattern_steps' : 400, # Kan ändras
+            'n_target_steps' : 10,
+            'pattern_delta' : 4,
             # Sensor parameters
             'pattern_sensors' : ['90'],
             'target_sensor' : '90',
             'target_sensors' : ['90'],
             # Training parameters
             'batch_size' : 10,
-            'data_split' : {'train':40, 'validation':20, 'test':40}, # sorting of data 
+            'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
             'mode' : '1',
             'delta' : 1, # Kan ändras
             'Dense_activation' : 'tanh',
             'early_stopping' : True,
-            'epochs' : 200,
+            'epochs' : 100,
             'learning_rate' : 0.001, # 0.001 by default
             'min_delta' : 0.01,
             'LSTM_activation' : 'tanh',
             'preprocess_type' : 'peaks',
-            'patience' : 15,
+            'patience' : 12,
             # Data interval
             'from' : 0,
             'to' : -1,
@@ -109,31 +109,40 @@ if __name__ == "__main__":
     elif use == 'AELSTM':
         from AELSTM import *
         architecture.update({
-            'n_units' : {'first': 800, 'second': 200, 'third' : 40, 'fourth': 20},
+            'model' : 'AE',
+            # Net configuaration
+            'n_units' : {'first' : 300, 'second' : 150, 'third' : 100},
+            'latent_dim' : {'first' : 200, 'second' : 150, 'third' : 125},
             'bias' : True,
-            'speeds' : 20,
-            'epochs' : 10,
-            'data_split' : {'train':40, 'validation':20, 'test':40}, # sorting of data 
-            'preprocess_type' : 'data',
-            'delta' : 1, # Kan ändras
-            'n_pattern_steps' : 400, # Kan ändras
-            'batch_size' : 16,
-            'n_target_steps' : 400,
-            'pattern_delta' : 50,
-            'Dense_activation' : 'tanh',
-            'LSTM_activation' : 'tanh',
-            'learning_rate_schedule' : False,
-            'pattern_sensors' : ['90'], 
+            'in_out_put_size' : 300, # Kan ändras
+            'pattern_delta' : 1,
+            # Sensor parameters
+            'pattern_sensors' : ['90'],
             'target_sensor' : '90',
             'target_sensors' : ['90'],
-            'learning_rate' : 0.01, # 0.001 by default
+            # Training parameters
+            'batch_size' : 10,
+            'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
+            'mode' : '1',
+            'delta' : 1, # Kan ändras
+            'Dense_activation' : 'tanh',
             'early_stopping' : True,
-            'latent_dim' : {'first' : 400, 'second' : 200, 'third' : 40}, 
+            'epochs' : 200,
+            'learning_rate' : 0.001, # 0.001 by default
+            'min_delta' : 0.01,
+            'LSTM_activation' : 'tanh',
+            'preprocess_type' : 'peaks',
+            'patience' : 15,
+            'scheduled_sampling' : True,
+            'sampling_rate' : 0.2,
+            # Data interval
             'from' : 0,
             'to' : -1,
             # Model saving
             'save_periodically' : True,
-            'save_interval' : 10 # Number of series to train on before saving
+            'save_interval' : 10, # Number of series to train on before saving
+            # Classification
+            'limit' : 0.9
         })
    
     if architecture['mode'] == '1':
@@ -208,7 +217,7 @@ if __name__ == "__main__":
         prediction_score.update({
             keys[i] : {'scores' : scores, 'speeds' : speeds, 'damage_state' : damage_states}           
             })
-        #plot_forecast(forecast, prediction_manual, architecture)
+        plot_forecast(forecast, prediction_manual, architecture)
     if plotting['forecast_performance'] == True:
         plot_performance(
             prediction_score,
