@@ -7,7 +7,7 @@ if __name__ == "__main__":
     # Which model to use (MLP or LSTM):
     #####################
     use = 'AELSTM'
-    name = 'i'
+    name = 'online reference'
     #####################
 
     architecture = {
@@ -73,11 +73,11 @@ if __name__ == "__main__":
     elif use == 'LSTM':
         from LSTM import *
         architecture.update({
-            'model' : 'three_layer',
+            'model' : 'two_layer',
             # Net configuaration
             'n_units' : {'first' : 300, 'second' : 150, 'third' : 100},
             'bias' : True,
-            'n_pattern_steps' : 400, # Kan ändras
+            'n_pattern_steps' : 200, # Kan ändras
             'n_target_steps' : 10,
             'pattern_delta' : 4,
             # Sensor parameters
@@ -90,8 +90,9 @@ if __name__ == "__main__":
             'mode' : '1',
             'delta' : 1, # Kan ändras
             'Dense_activation' : 'tanh',
+            'recurrent_activation' : 'sigmoid',
             'early_stopping' : True,
-            'epochs' : 100,
+            'epochs' : 200,
             'learning_rate' : 0.001, # 0.001 by default
             'min_delta' : 0.01,
             'LSTM_activation' : 'tanh',
@@ -111,10 +112,10 @@ if __name__ == "__main__":
         architecture.update({
             'model' : 'AE',
             # Net configuaration
-            'n_units' : {'first' : 300, 'second' : 150, 'third' : 100},
+            'n_units' : {'first' : 200, 'second' : 150, 'third' : 100},
             'latent_dim' : {'first' : 200, 'second' : 150, 'third' : 125},
             'bias' : True,
-            'in_out_put_size' : 300, # Kan ändras
+            'in_out_put_size' : 200, # Kan ändras
             'pattern_delta' : 1,
             # Sensor parameters
             'pattern_sensors' : ['90'],
@@ -127,13 +128,13 @@ if __name__ == "__main__":
             'delta' : 1, # Kan ändras
             'Dense_activation' : 'tanh',
             'early_stopping' : True,
-            'epochs' : 200,
+            'epochs' : 50,
             'learning_rate' : 0.001, # 0.001 by default
             'min_delta' : 0.01,
             'LSTM_activation' : 'tanh',
             'preprocess_type' : 'peaks',
             'patience' : 15,
-            'scheduled_sampling' : True,
+            'scheduled_sampling' : False,
             'sampling_rate' : 0.2,
             # Data interval
             'from' : 0,
