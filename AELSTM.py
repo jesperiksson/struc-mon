@@ -48,14 +48,7 @@ class NeuralNet():
             model = model_dict[arch['model']]
 
         elif self.existing_model == True:
-            model_path = 'models/'+self.arch['name']+'.json'
-            weights_path = 'models/'+self.arch['name']+'.h5'
-            json_file = open(model_path)
-            loaded_model_json = json_file.read()
-            json_file.close()
-            loaded_model = model_from_json(loaded_model_json)
-            loaded_model.load_weights(weights_path)
-            model = loaded_model
+            model = load_model(self.arch)
             print('\n Loaded model: ', name)
         else:
             raise Error

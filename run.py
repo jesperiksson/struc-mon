@@ -4,147 +4,167 @@ from Databatch import *
 from util import *
 
 if __name__ == "__main__":
-    # Which model to use (MLP or LSTM):
+    
     #####################
-    use = 'AELSTM'
-    name = 'online reference'
-    #####################
-
-    architecture = {
-        'name' :use + name,
-        'active_sensors' : ['90'],
-        'predict' : 'accelerations', # accelerations or damage
-        'path' : 'our_measurements3/e90/',
-        'random_mode' : 'test' # test or debug
-        }
-    sensor_dict = {}
-    for i in range(len(architecture['active_sensors'])):
-        sensor_dict.update({
-            architecture['active_sensors'][i] : i
+    use = 'LSTM'                    # Which model to use (MLP or LSTM):
+    name = 'test'                   # Name of model
+    overwrite = False               # True: erase any model with that name and make a new model
+                                    # False: Try to load a model with that name, if none exists
+                                    # a new one is saved. 
+    #####################  
+    if overwrite == False:
+        try: 
+            architecture = load_architecture(name)
+            print('Loaded architecture: ', name)
+            new_model = False
+            if use == 'MLP':
+                from MLP import *
+            elif use == 'LSTM':
+                from LSTM import *
+            elif use == 'AELSTM':
+                from AELSTM import *
+        except IOError: 
+            new_model = True
+    elif overwrite == True:    
+        new_model = True
+         
+    if new_model == True:
+        architecture = {
+            'name' :use + name,
+            'active_sensors' : ['90'],
+            'predict' : 'accelerations', # accelerations or damage
+            'path' : 'our_measurements3/e90/',
+            'random_mode' : 'test' # test or debug
+            }
+        sensor_dict = {}
+        for i in range(len(architecture['active_sensors'])):
+            sensor_dict.update({
+                architecture['active_sensors'][i] : i
+                })
+        architecture.update({
+            'sensors' : sensor_dict
             })
-    architecture.update({
-        'sensors' : sensor_dict
-        })
-    plotting = {
-        'prediction_performance' : True,
-        'prediction_confusion_matrix' : True,
-        'prediction_roc' : False, # To be implemented
-        'forecast_performance' : True,
-        'forecast_confusion_matrix' : True
-        }
+        plotting = {
+            'prediction_performance' : True,
+            'prediction_confusion_matrix' : True,
+            'prediction_roc' : False, # To be implemented
+            'forecast_performance' : True,
+            'forecast_confusion_matrix' : True
+            }
 
-    if use == 'MLP':
-        from MLP import *
-        architecture.update({
-            'model' : 'single_layer',
-            # Net configuration
-            'bias' : True,
-            'n_pattern_steps' : 500, # Kan ändras
-            'n_target_steps' : 25,
-            'pattern_delta' : 10,
-            'delta' : 1,
-            'n_units' : {'first' : 150, 'second' : 15},
-            'loss' : 'rmse',
-            # Sensor parameters
-            'pattern_sensors' : ['45'], 
-            'target_sensor' : '45',
-            'target_sensors' : ['45'],
-            # Training parameters
-            'Dense_activation' : 'tanh',
-            'epochs' : 50,
-            'patience' : 10,
-            'early_stopping' : True,
-            'learning_rate' : 0.001, # 0.001 by default
-            'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
-            'mode' : '1',
-            'preprocess_type' : 'data',      
-            'batch_size' : 25,
-            # Model saving
-            'save_periodically' : True,
-            'save_interval' : 10, # Number of series to train on before saving
-            # Data interval
-            'from' : 0,
-            'to' : -1,
-            # Classification
-            'limit' : 0.9,
-            # Plotting
-            'metric' : 'rmse'
-        })
-    elif use == 'LSTM':
-        from LSTM import *
-        architecture.update({
-            'model' : 'two_layer',
-            # Net configuaration
-            'n_units' : {'first' : 300, 'second' : 150, 'third' : 100},
-            'bias' : True,
-            'n_pattern_steps' : 200, # Kan ändras
-            'n_target_steps' : 10,
-            'pattern_delta' : 4,
-            # Sensor parameters
-            'pattern_sensors' : ['90'],
-            'target_sensor' : '90',
-            'target_sensors' : ['90'],
-            # Training parameters
-            'batch_size' : 10,
-            'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
-            'mode' : '1',
-            'delta' : 1, # Kan ändras
-            'Dense_activation' : 'tanh',
-            'recurrent_activation' : 'sigmoid',
-            'early_stopping' : True,
-            'epochs' : 200,
-            'learning_rate' : 0.001, # 0.001 by default
-            'min_delta' : 0.01,
-            'LSTM_activation' : 'tanh',
-            'preprocess_type' : 'peaks',
-            'patience' : 12,
-            # Data interval
-            'from' : 0,
-            'to' : -1,
-            # Model saving
-            'save_periodically' : True,
-            'save_interval' : 10, # Number of series to train on before saving
-            # Classification
-            'limit' : 0.9
-        })
-    elif use == 'AELSTM':
-        from AELSTM import *
-        architecture.update({
-            'model' : 'AE',
-            # Net configuaration
-            'n_units' : {'first' : 200, 'second' : 150, 'third' : 100},
-            'latent_dim' : {'first' : 200, 'second' : 150, 'third' : 125},
-            'bias' : True,
-            'in_out_put_size' : 200, # Kan ändras
-            'pattern_delta' : 1,
-            # Sensor parameters
-            'pattern_sensors' : ['90'],
-            'target_sensor' : '90',
-            'target_sensors' : ['90'],
-            # Training parameters
-            'batch_size' : 10,
-            'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
-            'mode' : '1',
-            'delta' : 1, # Kan ändras
-            'Dense_activation' : 'tanh',
-            'early_stopping' : True,
-            'epochs' : 50,
-            'learning_rate' : 0.001, # 0.001 by default
-            'min_delta' : 0.01,
-            'LSTM_activation' : 'tanh',
-            'preprocess_type' : 'peaks',
-            'patience' : 15,
-            'scheduled_sampling' : False,
-            'sampling_rate' : 0.2,
-            # Data interval
-            'from' : 0,
-            'to' : -1,
-            # Model saving
-            'save_periodically' : True,
-            'save_interval' : 10, # Number of series to train on before saving
-            # Classification
-            'limit' : 0.9
-        })
+        if use == 'MLP':
+            from MLP import *
+            architecture.update({
+                'model' : 'single_layer',
+                # Net configuration
+                'bias' : True,
+                'n_pattern_steps' : 500, # Kan ändras
+                'n_target_steps' : 25,
+                'pattern_delta' : 10,
+                'delta' : 1,
+                'n_units' : {'first' : 150, 'second' : 15},
+                'loss' : 'rmse',
+                # Sensor parameters
+                'pattern_sensors' : ['45'], 
+                'target_sensor' : '45',
+                'target_sensors' : ['45'],
+                # Training parameters
+                'Dense_activation' : 'tanh',
+                'epochs' : 50,
+                'patience' : 10,
+                'early_stopping' : True,
+                'learning_rate' : 0.001, # 0.001 by default
+                'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
+                'mode' : '1',
+                'preprocess_type' : 'data',      
+                'batch_size' : 25,
+                # Model saving
+                'save_periodically' : True,
+                'save_interval' : 10, # Number of series to train on before saving
+                # Data interval
+                'from' : 0,
+                'to' : -1,
+                # Classification
+                'limit' : 0.9,
+                # Plotting
+                'metric' : 'rmse'
+            })
+        elif use == 'LSTM':
+            from LSTM import *
+            architecture.update({
+                'model' : 'two_layer',
+                # Net configuaration
+                'n_units' : {'first' : 300, 'second' : 150, 'third' : 100},
+                'bias' : True,
+                'n_pattern_steps' : 200, # Kan ändras
+                'n_target_steps' : 10,
+                'pattern_delta' : 4,
+                # Sensor parameters
+                'pattern_sensors' : ['90'],
+                'target_sensor' : '90',
+                'target_sensors' : ['90'],
+                # Training parameters
+                'batch_size' : 10,
+                'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
+                'mode' : '1',
+                'delta' : 1, # Kan ändras
+                'Dense_activation' : 'tanh',
+                'recurrent_activation' : 'sigmoid',
+                'early_stopping' : True,
+                'epochs' : 200,
+                'learning_rate' : 0.001, # 0.001 by default
+                'min_delta' : 0.01,
+                'LSTM_activation' : 'tanh',
+                'preprocess_type' : 'peaks',
+                'patience' : 12,
+                # Data interval
+                'from' : 0,
+                'to' : -1,
+                # Model saving
+                'save_periodically' : True,
+                'save_interval' : 10, # Number of series to train on before saving
+                # Classification
+                'limit' : 0.9
+            })
+        elif use == 'AELSTM':
+            from AELSTM import *
+            architecture.update({
+                'model' : 'AE',
+                # Net configuaration
+                'n_units' : {'first' : 200, 'second' : 150, 'third' : 100},
+                'latent_dim' : {'first' : 200, 'second' : 150, 'third' : 125},
+                'bias' : True,
+                'in_out_put_size' : 200, # Kan ändras
+                'pattern_delta' : 1,
+                # Sensor parameters
+                'pattern_sensors' : ['90'],
+                'target_sensor' : '90',
+                'target_sensors' : ['90'],
+                # Training parameters
+                'batch_size' : 10,
+                'data_split' : {'train':60, 'validation':20, 'test':20}, # sorting of data 
+                'mode' : '1',
+                'delta' : 1, # Kan ändras
+                'Dense_activation' : 'tanh',
+                'early_stopping' : True,
+                'epochs' : 50,
+                'learning_rate' : 0.001, # 0.001 by default
+                'min_delta' : 0.01,
+                'LSTM_activation' : 'tanh',
+                'preprocess_type' : 'peaks',
+                'patience' : 15,
+                'scheduled_sampling' : False,
+                'sampling_rate' : 0.2,
+                # Data interval
+                'from' : 0,
+                'to' : -1,
+                # Model saving
+                'save_periodically' : True,
+                'save_interval' : 10, # Number of series to train on before saving
+                # Classification
+                'limit' : 0.9
+            })
+        save_architecture(architecture, name)
    
     if architecture['mode'] == '1':
         series_stack = data_split_mode1(architecture)

@@ -5,7 +5,7 @@ from Databatch import *
 import time
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.python.keras.models import Sequential, Model, model_from_json
+from tensorflow.python.keras.models import Sequential, Model#, model_from_json
 from tensorflow.python.keras.layers import Input, Dense, LSTM, concatenate, Activation, Reshape, Bidirectional
 from tensorflow.python.keras.callbacks import EarlyStopping, LearningRateScheduler
 from tensorflow.python.keras import metrics, regularizers
@@ -48,14 +48,7 @@ class NeuralNet():
             model = model_dict[arch['model']]
 
         elif self.existing_model == True:
-            model_path = 'models/'+self.arch['name']+'.json'
-            weights_path = 'models/'+self.arch['name']+'.h5'
-            json_file = open(model_path)
-            loaded_model_json = json_file.read()
-            json_file.close()
-            loaded_model = model_from_json(loaded_model_json)
-            loaded_model.load_weights(weights_path)
-            model = loaded_model
+            model = load_model(self.arch)
             print('\n Loaded model: ', name)
         else:
             raise Error
@@ -85,7 +78,7 @@ class NeuralNet():
             series_stack = series_stacks[keys[h]]
             print('\nTraining on ', keys[h],'% healthy data.\n')
             print('\n Number of series being used for training:', len(series_stack[self.arch['preprocess_type']]), '\n')
-            for i in range(len(series_stack[self.arch['preprocess_type']])):
+            for i in range(1):#len(series_stack[self.arch['preprocess_type']])):
                 series = series_stack[self.arch['preprocess_type']]['batch'+str(i)]
                 if series.category == 'train' or series.category == 'validation':
                     print('\nFitting series: ', i, ' out of:', len(series_stack[self.arch['preprocess_type']]))

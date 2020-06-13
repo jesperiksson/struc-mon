@@ -5,10 +5,12 @@ import matplotlib.colors as colors
 import scipy.stats as stats
 import seaborn as sn
 from sklearn.metrics import roc_curve, confusion_matrix, plot_confusion_matrix
+from tensorflow.python.keras.models import model_from_json
 import os
 import random
 import h5py
 import os
+import pickle 
 import pandas as pd
 
 # Classes
@@ -155,6 +157,24 @@ def save_model(model,name):
         # serialize weights to HDF5
     model.save_weights('models/'+name+'.h5')
     print('Saved model:', name)
+
+def load_model(arch):
+    model_path = 'models/'+arch['name']+'.json'
+    weights_path = 'models/'+arch['name']+'.h5'
+    json_file = open(model_path)
+    loaded_model_json = json_file.read()
+    json_file.close()
+    loaded_model = model_from_json(loaded_model_json)
+    loaded_model.load_weights(weights_path)
+    return loaded_model
+
+def save_architecture(architecture, name):
+    with open('models/'+ name +'.pkl', 'wb') as f:
+        pickle.dump(architecture, f, pickle.HIGHEST_PROTOCOL)
+
+def load_architecture(name):
+    with open('models/'+ name +'.pkl', 'rb') as f:
+        return pickle.load(f)    
 
 def plot_loss(self, name):
     plt.figure()
