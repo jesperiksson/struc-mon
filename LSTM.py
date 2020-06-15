@@ -6,7 +6,7 @@ import time
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.python.keras.models import Sequential, Model#, model_from_json
-from tensorflow.python.keras.layers import Input, Dense, LSTM, concatenate, Activation, Reshape, Bidirectional
+from tensorflow.python.keras.layers import Input, Dense, LSTM, CuDNNLSTM, concatenate, Activation, Reshape, Bidirectional
 from tensorflow.python.keras.callbacks import EarlyStopping, LearningRateScheduler
 from tensorflow.python.keras import metrics, regularizers
 from tensorflow.keras.utils import plot_model
@@ -246,11 +246,13 @@ def generator(self, batch):
     '''
 
 def get_steps(self, series):
+    print(series.n_steps)
     steps = int(
         np.floor(
             (series.n_steps-(self.arch['n_pattern_steps']+self.arch['n_target_steps']))/self.arch['pattern_delta']
         )
     )
+    print(steps)
     return steps   
 
 def rmse(true, prediction):
@@ -365,7 +367,7 @@ def set_up_model7(arch):
             1),
         name = 'accel_input_90')
 
-    hidden_lstm_1 = LSTM(
+    hidden_lstm_1 = CuDNNLSTM(
         arch['n_units']['first'],
         batch_input_shape = (
             arch['batch_size'],
@@ -506,6 +508,40 @@ def set_up_model10(arch):
         arch['n_target_steps'], 
         activation='tanh', 
         name='peak_output_90')(hidden_lstm_3)
+
+    model = Model(inputs = accel_input, outputs = output)
+
+    return model
+######################################################################################################
+def set_up_model11(arch):
+
+    accel_input = Input(
+        shape=(
+            arch['n_pattern_steps'], 
+            1),
+        name = 'accel_input_90')
+
+    hidden_lstm_1 = CuDNNLSTM(
+        arch['n_units']['first'],
+        batch_input_shape = (
+            arch['batch_size'],
+            arch['n_pattern_steps'],
+            1),
+        return_sequences = True,
+        stateful = False)(accel_input)
+
+    hidden_lstm_2 = CuDNNLSTM(
+        arch['n_units']['second'],
+        batch_input_shape = (
+            arch['batch_size'],
+            arch['n_pattern_steps'],
+            1),
+        stateful = False)(hidden_lstm_1)
+
+    output = Dense(
+        arch['n_target_steps'], 
+        activation='tanh', 
+        name='peak_output_90')(hidden_lstm_2)
 
     model = Model(inputs = accel_input, outputs = output)
 

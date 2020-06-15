@@ -7,8 +7,8 @@ if __name__ == "__main__":
     
     #####################
     use = 'LSTM'                    # Which model to use (MLP or LSTM):
-    name = 'test'                   # Name of model
-    overwrite = False               # True: erase any model with that name and make a new model
+    name = 'onlineCudnnData'                   # Name of model
+    overwrite = True               # True: erase any model with that name and make a new model
                                     # False: Try to load a model with that name, if none exists
                                     # a new one is saved. 
     #####################  
@@ -94,11 +94,11 @@ if __name__ == "__main__":
             architecture.update({
                 'model' : 'two_layer',
                 # Net configuaration
-                'n_units' : {'first' : 300, 'second' : 150, 'third' : 100},
+                'n_units' : {'first' : 500, 'second' : 250, 'third' : 100},
                 'bias' : True,
-                'n_pattern_steps' : 200, # Kan ändras
-                'n_target_steps' : 10,
-                'pattern_delta' : 4,
+                'n_pattern_steps' : 1000, # Kan ändras
+                'n_target_steps' : 100,
+                'pattern_delta' : 40,
                 # Sensor parameters
                 'pattern_sensors' : ['90'],
                 'target_sensor' : '90',
@@ -115,8 +115,8 @@ if __name__ == "__main__":
                 'learning_rate' : 0.001, # 0.001 by default
                 'min_delta' : 0.01,
                 'LSTM_activation' : 'tanh',
-                'preprocess_type' : 'peaks',
-                'patience' : 12,
+                'preprocess_type' : 'data',
+                'patience' : 50,
                 # Data interval
                 'from' : 0,
                 'to' : -1,
