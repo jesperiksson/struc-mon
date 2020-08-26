@@ -1,21 +1,27 @@
-import numpy as np
-import scipy as sp
-from scipy.signal import argrelextrema
-import matplotlib.pyplot as plt
-from sklearn import preprocessing
-
 class DataBatch():
-    def __init__(self, data, batch_num, speed, normalized_speed, category, damage_state):
+    def __init__(self, a, data, batch_num, speed, normalized_speed, category, damage_state):
         self.data = np.array(data)
-        self.unnormalized_data = np.array(data)
-        for i in range(np.shape(data)[0]):
-            self.data[i,:] = self.data[i,:]/max(abs(self.data[i,:]))
-        #self.data = preprocessing.normalize(self.data)
+        self.raw_data = np.array(data)
+        #for i in range(np.shape(data)[0]):
+        #    self.data[i,:] = self.raw_data[i,:]/max(abs(self.raw_data[i,:]))
+        self.l1 = preprocessing.normalize(
+            X = self.raw_data,
+            norm = 'l1')
+        self.l2 = preprocessing.normalize(
+            X = self.raw_data,
+            norm = 'l2')
+        self.max = preprocessing.normalize(
+            X = self.raw_data,
+            norm = 'max')
         self.sensors = np.shape(data)[0]
         self.batch_num = batch_num
         self.category = category
         self.n_steps = np.shape(self.data)[1]
-        self.speed = {'km/h' : speed, 'm/s' : (speed*3.6/10)}
+        speed_dict = {
+            'km/h' : speed, 
+            'm/s' : (speed*3.6/10)
+            }
+        self.speed = speed_dict[a['speed_unit']]
         self.normalized_speed = normalized_speed
         self.damage_state = damage_state
         self.normalized_damage_state = damage_state/100
@@ -26,6 +32,14 @@ class DataBatch():
         self.delta = [None]*self.sensors
         for i in range(self.sensors):
             self.steps[i] = self.n_steps
+        self.data_dict = {
+            'Raw data'  : self.raw_data,    # Unaltered
+            'L-1'       : self.l1,          # L1-norm
+            'L-2'       : self.l2,          # L2-norm
+            'Maximum'   : self.max          # Normalized to the greatest acceleration
+        }
+        #self.data = self.data_dict[a['normalization']]
+        self.n_series = int(self.n_steps)-int(a['delta']*a['n_pattern_steps'])
 
     def plot_batch(stack, arch, plot_sensor = '90'): 
         print(stack)
@@ -55,21 +69,6 @@ class DataBatch():
         plt.plot(self.peaks_indices[sensor], self.peaks[sensors['sensors'][plot_sensor]], 'r*', mew = 0.02)
         plt.plot(self.extrema_indices[sensor], self.extrema[sensors['sensors'][plot_sensor]], 'go', mew = 0.02)
         plt.show()
-
-class extrema(DataBatch):
-    def __init__(self, data, batch_num, speed, normalized_speed, category = 'train', damage_state = 1):  
-        super().__init__(data, batch_num, speed, normalized_speed)
-        for i in range(self.sensors):
-            indices = sp.signal.argrelextrema(
-                np.absolute(self.data[i]), 
-                np.greater, 
-                axis = 0, 
-                order = 1)
-            self.indices[i] = indices[0]
-            self.extrema[i] = self.data[i][self.indices[i]]
-            self.steps[i] = np.shape(self.indices[i])[0]
-            delta = np.diff(self.indices[i])
-            self.delta[i] = delta/max(delta)
 
 class peaks(DataBatch):
     def __init__(self, data, batch_num, speed, normalized_speed, category, damage_state):  
