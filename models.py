@@ -2,7 +2,8 @@
 
 ##Single layer LSTM CPU
 """
-
+from tensorflow.python.keras.models import Model
+from tensorflow.python.keras.layers import Input, Dense, LSTM, CuDNNLSTM, concatenate, Activation, Reshape, Flatten, Dropout
 def set_up_model6(arch): # Vanilla 
 
     accel_input = Input(
