@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 import os
+from datetime import datetime
+from datetime import timedelta
 
 from set_settings import set_settings
 import config
@@ -25,6 +27,47 @@ class DataBatch():
     SamplingRate : int = 0
     CutOffFrequency : int = 0
     Date : int = 0
+    
+    
+    def add_date_to_df(self):
+        self.data['date'] = [self.Date] * (self.data.index[-1]+1)
+        self.data['date'] = pd.to_datetime(
+            self.data['date'],
+            dayfirst = False,
+            format = config.dateformat)
+        self.data['date'] = self.data['date'] + np.arange(0,self.data.index[-1]+1,dtype='timedelta64[s]')
+            
+    def add_date_signal_to_df(self):
+        #print(type(self.data['date'].values[0]))
+        day = 24*60*60
+        #[]
+        self.data['daysignal_sin'] = np.sin(
+            (   self.data['date'].hour*3600+self.data['date'].minute*60+
+                self.data['date'].second+self.data['date'].microseconds/1e6
+                ) * (2 * np.pi / day)
+                )
+        self.data['daysignal_cos'] = np.cos(
+            (   self.data['date'].hour*3600+self.data['date'].minute*60+
+                self.data['date'].second+self.data['date'].microseconds/1e6
+                ) * (2 * np.pi / day)
+                )
+        week = 6
+        self.data['weeksignal_sin'] = np.sin(
+            self.data['date'].weekday() * (2 * np.pi / week)
+            )
+        self.data['weeksignal_cos'] = np.cos(
+            self.data['date'].weekday() * (2 * np.pi / week)
+            )
+        year = 365.25
+        self.data['yearsignal_sin'] = np.sin(
+            self.data['date'].timetuple().tm_yday * (2 * np.pi / year)
+            )
+        self.data['yearsignal_cos'] = np.cos(
+            self.data['date'].timetuple().tm_yday * (2 * np.pi / year)
+            )
+        print(self.data['daysignal_sin'],self.data['daysignal_cos'],self.data['weeksignal_sin'],
+        self.data['weeksignal_cos'],self.data['yearsignal_sin'],self.data['yearsignal_cos'])
+
         
     def normalize(self, scheme): # TBI, copied from Struc-mon 1
         self.l1 = preprocessing.normalize(
@@ -45,14 +88,14 @@ class DataBatch():
         
 class Series_Stack(): 
     
-    def __init__(self, settings, new_or_old):
+    def __init__(self, settings, new_or_old,file_path=config.measurements): # file_path allows for testing
         '''
         Goes to the location specified by 'file_path' in config.py and set these files as available.
         If the model is reloaded it goes to settings to see which files it already knows.
         The files that are available but not learned are set to be learned.
         '''
         if new_or_old == 'new':
-            self.learned = set()
+            self.learned = set()    
         elif new_or_old == 'old':
             self.learned = settings['learned']
         self.available = set()
@@ -60,14 +103,14 @@ class Series_Stack():
         for i in range(len(months)):
             for j in range(len(config.sensors_of_interest)):
                 try:
-                    path = config.measurements + '/' + months[i] +'/'+ config.sensors_of_interest[j]
+                    path = file_path + '/' + months[i] +'/'+ config.sensors_of_interest[j]
                     files = os.listdir(path)
                     self.available.update(set(path +'/'+ f for f in files))
                 except FileNotFoundError: 
                     pass
         self.to_learn = list(self.available - self.learned)
         self.in_stack = set()
-        self.settings = set_settings()
+        self.settings = settings
         self.stack = list()
 
     def populate_stack(self):
@@ -79,15 +122,20 @@ class Series_Stack():
                 filepath_or_buffer = self.to_learn[i],
                 delimiter = ';',
                 header = 22, # The header row happens to be on line 22
-                names = ['x', 'y', 'z','Index'])
+                names = self.settings['features']+['Index'])
             df = pd.DataFrame(acc)
             df['Index'] = df.index
+            df.index = range(0,len(df.index))
             cols = df.columns.tolist()
             cols = cols[-1:] + cols[:-1] # move Index to front
             df = df[cols]
             content = self.read_file(self.to_learn[i])
             self.stack.append(self.get_Databatch(df, content))
-            self.in_stack.update(self.to_learn[i])   
+            self.in_stack.update(self.to_learn[i])
+            if self.settings['use_date'] == True: # Add dates to the DataFrame
+                self.stack[i].add_date_to_df()
+            else: 
+                pass
             
     def get_Databatch(self,df, aux_data):
         '''
@@ -102,7 +150,7 @@ class Series_Stack():
         DAC = aux_data[tstart:tstart+5]
         tstart = aux_data.find('Data acquisition duration : ')+28
         DAD = aux_data[tstart:tstart+3]
-        tstart = aux_data.find('Sampling rate : ')+15
+        tstart = aux_data.find('Sampling rate : ')+16
         SR = aux_data[tstart:tstart+2]
         tstart = aux_data.find('Cut off frequency : ')+20
         COF = aux_data[tstart:tstart+2]
@@ -121,14 +169,6 @@ class Series_Stack():
             return f.read()
         
         
-'''
-    def read_file(path): # Used by populate_stack() DEPRECATED
-        with open(path, 'r') as f:
-        f = open(path, 'r')
-        content = f.read()
-        f.close()
-        return content 
-'''
         
 '''
 class frequencySpectrum(DataBatch):

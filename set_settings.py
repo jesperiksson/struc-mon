@@ -1,7 +1,20 @@
+settings_placeholder = {
+    'name' : 'placeholder', # Name of model
+    'model' : 'test_NN', # which model from the model file
+    'model_path' : '/home/jesper/Kurser/Exjobb/ANN/code/struc-mon/models',
+    'use_date' : True, # put the date from the data files in the DataFrame
+    'features' : ['x','y','z'], # column heads in the data set 
+    'target' : ['x'], # the target variable
+    'data_split' : {
+        'train':0.7, 
+        'validation':0.2, 
+        'test':0.1
+        },
+        } 
 def set_settings(placeholder = False):
     if placeholder == False:
         settings = {
-            'name' : 'foobar',
+            'name' : 'placeholder',
             'model_path' : '',
             # Which neural net
             'model' : 'Single layer MLP',
@@ -74,5 +87,5 @@ def set_settings(placeholder = False):
             'poly_deg' : 1
         }
     elif placeholder == True:
-        settings = {'name' : 'placeholder'}
+        settings = settings_placeholder
     return settings

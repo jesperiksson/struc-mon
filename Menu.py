@@ -9,7 +9,12 @@ def menu(action = None):
         if action == 'quit':
             quit_program()
         elif action == 'new model':
-            settings, data, neural_net = new_model()
+            settings, data, model = new_model()
+            model.make_dataframe()
+            model.setup_nn()
+            model.make_timeseries_dataset(mod)
+            model.train()
+            model.evaluate
             
         elif action == 'load_model':
             settings, data, neural_net = load_model()

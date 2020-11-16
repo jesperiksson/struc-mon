@@ -11,16 +11,16 @@ import pandas as pd
 # Self made stuff
 import config
 import Databatch
-from NeuralNet import NeuralNet
+from Model import Model, NeuralNet, TimeSeriesNeuralNet
 from set_settings import *
 
 ### FUNCTIONS FOR CREATING OR LOADING A MODEL ###
 def new_model():
     settings = get_settings() #lives in a separate file since it is large
     #save_settings(settings)
-    data = Series_Stack(settings, 'new')
-    neural_net = NeuralNet(settings, existing_model = False)
-    return settings, data, neural_net
+    data = Series_Stack(settings, 'new',config.file_path)
+    model = TimeSeriesNeuralNet(settings, existing_model = False)
+    return settings, data, model
 
 def load_model(name = None):
     if name == None:

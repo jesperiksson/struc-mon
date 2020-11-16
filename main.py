@@ -1,4 +1,4 @@
-
+# The top level program file
 # Imports
 
 # Libraries and modules
@@ -17,9 +17,8 @@ from sklearn import preprocessing
 from Menu import *
 from functions import *
 import config
-import models
 import set_settings
-import NeuralNet
+import Model
 import Databatch
 
 def main():
