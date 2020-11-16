@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net" modified="2020-11-01T10:55:29.984Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36" etag="2seJZgjizlBTydJNGHRA" version="13.8.7" type="github">
+<mxfile host="app.diagrams.net" modified="2020-11-12T10:40:45.256Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36" etag="myjxOnJGrVEzFoCpvmte" version="13.9.7" type="github">
   <diagram id="C5RBs43oDa-KdzZeNtuy" name="Page-1">
-    <mxGraphModel dx="1875" dy="909" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+    <mxGraphModel dx="1422" dy="801" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
       <root>
         <mxCell id="WIyWlLk6GJQsqaUBKTNV-0" />
         <mxCell id="WIyWlLk6GJQsqaUBKTNV-1" parent="WIyWlLk6GJQsqaUBKTNV-0" />
@@ -47,10 +47,10 @@
         <mxCell id="3SdIP5uNNKMW2fPhe3Vz-9" value="NeuralNet.py&lt;br&gt;class NeuralNet()&lt;br&gt;&amp;nbsp; &amp;nbsp; self.settings&lt;br&gt;&amp;nbsp; &amp;nbsp; self.name&lt;br&gt;&amp;nbsp; &amp;nbsp; self.existing_model&lt;br&gt;&lt;br&gt;&amp;nbsp; &amp;nbsp; split_data(data)&lt;br&gt;&lt;br&gt;&amp;nbsp; &amp;nbsp; train(data)&lt;br&gt;&lt;br&gt;&amp;nbsp; &amp;nbsp; save_model(model)&lt;br&gt;&lt;br&gt;&amp;nbsp; &amp;nbsp; load_model(model)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;" parent="WIyWlLk6GJQsqaUBKTNV-1" vertex="1">
           <mxGeometry x="510" y="120" width="170" height="320" as="geometry" />
         </mxCell>
-        <mxCell id="fk17r2AHfMUluzev5C7j-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="3SdIP5uNNKMW2fPhe3Vz-10" target="3SdIP5uNNKMW2fPhe3Vz-9">
+        <mxCell id="fk17r2AHfMUluzev5C7j-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" parent="WIyWlLk6GJQsqaUBKTNV-1" source="3SdIP5uNNKMW2fPhe3Vz-10" target="3SdIP5uNNKMW2fPhe3Vz-9" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="3SdIP5uNNKMW2fPhe3Vz-10" value="models.py&lt;br&gt;def single_layer_MLP()&lt;br&gt;&amp;nbsp; &amp;nbsp; return model&lt;br&gt;def single_layer_LSTM()&lt;br&gt;&amp;nbsp; &amp;nbsp; return model&lt;br&gt;..." style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;" parent="WIyWlLk6GJQsqaUBKTNV-1" vertex="1">
+        <mxCell id="3SdIP5uNNKMW2fPhe3Vz-10" value="&amp;lt;modelname&amp;gt;.py&lt;br&gt;def set_up_model()&lt;br&gt;&amp;nbsp; &amp;nbsp; arch = {...}&lt;br&gt;&amp;nbsp; &amp;nbsp; return model&lt;br&gt;&lt;br&gt;..." style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;" parent="WIyWlLk6GJQsqaUBKTNV-1" vertex="1">
           <mxGeometry x="440" y="490" width="170" height="100" as="geometry" />
         </mxCell>
         <mxCell id="3SdIP5uNNKMW2fPhe3Vz-26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;endArrow=classic;endFill=1;fontSize=12;" parent="WIyWlLk6GJQsqaUBKTNV-1" source="3SdIP5uNNKMW2fPhe3Vz-11" target="3SdIP5uNNKMW2fPhe3Vz-9" edge="1">
@@ -81,7 +81,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="fk17r2AHfMUluzev5C7j-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="3SdIP5uNNKMW2fPhe3Vz-13" target="3SdIP5uNNKMW2fPhe3Vz-10">
+        <mxCell id="fk17r2AHfMUluzev5C7j-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="WIyWlLk6GJQsqaUBKTNV-1" source="3SdIP5uNNKMW2fPhe3Vz-13" target="3SdIP5uNNKMW2fPhe3Vz-10" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="240" y="620" as="targetPoint" />
             <Array as="points">
@@ -91,7 +91,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="fk17r2AHfMUluzev5C7j-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="3SdIP5uNNKMW2fPhe3Vz-13" target="3SdIP5uNNKMW2fPhe3Vz-12">
+        <mxCell id="fk17r2AHfMUluzev5C7j-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="WIyWlLk6GJQsqaUBKTNV-1" source="3SdIP5uNNKMW2fPhe3Vz-13" target="3SdIP5uNNKMW2fPhe3Vz-12" edge="1">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
               <mxPoint x="260" y="700" />
