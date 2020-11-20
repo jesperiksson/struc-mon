@@ -99,7 +99,7 @@ class Series_Stack():
         elif new_or_old == 'old':
             self.learned = settings['learned']
         self.available = set()
-        months = os.listdir(config.measurements)
+        months = list(config.months_to_use)
         for i in range(len(months)):
             for j in range(len(config.sensors_of_interest)):
                 try:

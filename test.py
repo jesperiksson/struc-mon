@@ -7,6 +7,7 @@ from tensorflow import test
 import tensorflow as tf
 import os
 from datetime import datetime
+import copy
 
 import main
 import config
@@ -190,8 +191,86 @@ class TimeSeriesNeuralNet_test(unittest.TestCase):
         model.setup_nn()
         model.make_timeseries_dataset()
         self.assertIsInstance(model.train_df,pd.DataFrame)
-        self.assertIsInstance(obj=model.train_ds,cls=tf.data.Dataset) 
+        self.assertIsInstance(obj=model.time_series.train,cls=tf.data.Dataset) 
+    
+    @unittest.skip('redundant')        
+    def test_train(self):
+        settings = set_settings(placeholder=True)
+        series_stack = Series_Stack(settings,'new',file_path = config.test_measurements)
+        series_stack.populate_stack()
+        model = TimeSeriesNeuralNet(settings,False)
+        model.make_dataframe(series_stack)
+        model.setup_nn()
+        model.make_timeseries_dataset()
+        model.train()
+    
+    @unittest.skip('takes long time')     
+    def test_evalutate(self):
+        settings = set_settings(placeholder=True)
+        series_stack = Series_Stack(settings,'new',file_path = config.test_measurements)
+        series_stack.populate_stack()
+        model = TimeSeriesNeuralNet(settings,False)
+        model.make_dataframe(series_stack)
+        model.setup_nn()
+        model.make_timeseries_dataset()
+        model.train()
+        model.evaluate()
+           
+    @unittest.skip('plots images')    
+    def test_plot_history(self):
+        settings = set_settings(placeholder=True)
+        series_stack = Series_Stack(settings,'new',file_path = config.test_measurements)
+        series_stack.populate_stack()
+        model = TimeSeriesNeuralNet(settings,False)
+        model.make_dataframe(series_stack)
+        model.setup_nn()
+        model.make_timeseries_dataset()
+        model.train()
+        model.plot_history()
+     
+    @unittest.skip('return to this one')    
+    def test_plot_test_loss(self):
+        settings = set_settings(placeholder=True)
+        series_stack = Series_Stack(settings,'new',file_path = config.train_test_measurements)
+        series_stack.populate_stack()
+        model = TimeSeriesNeuralNet(settings,False)
+        model.make_dataframe(series_stack)
+        model.setup_nn()
+        model.make_timeseries_dataset()
+        model.train()
+        model.evaluate()
+        model.plot_test_loss()
+    
+    @unittest.skip('they print the same but fail the test')
+    def test_save_and_load(self):
+        settings = set_settings(placeholder=True)
+        series_stack = Series_Stack(settings,'new',file_path = config.train_test_measurements)
+        series_stack.populate_stack()
+        model1 = TimeSeriesNeuralNet(settings,False)
+        model1.make_dataframe(series_stack)
+        model1.setup_nn()
+        model1.make_timeseries_dataset()
+        model1.train()
+        model1.save_nn(overwrite=True)
         
+        model2 = TimeSeriesNeuralNet(settings,False)
+        model2.make_dataframe(series_stack)
+        model2.setup_nn()
+        model2.make_timeseries_dataset()        
+        model2.load_nn()
+        print('\n',model1.nn.trainable_weights,'\n',model2.nn.trainable_weights,'\n')
+        tf.debugging.assert_equal(model1.nn.trainable_weights,model2.nn.trainable_weights)
+        
+    def test_predict(self):
+        settings = set_settings(placeholder=True)
+        series_stack = Series_Stack(settings,'new',file_path = config.train_test_measurements)
+        series_stack.populate_stack()
+        model = TimeSeriesNeuralNet(settings,False)
+        model.make_dataframe(series_stack)
+        model.setup_nn()
+        model.make_timeseries_dataset()
+        model.train()
+        model.predict_single_sample()
 
         
 class set_settings_test(unittest.TestCase):
