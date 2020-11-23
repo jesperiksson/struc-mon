@@ -173,109 +173,83 @@ class GenericNeuralNet_test(unittest.TestCase):
     
 class TimeSeriesNeuralNet_test(unittest.TestCase):
 
+    #@unittest.skip('')
     def test_setup_nn(self):
-        settings = set_settings(placeholder=True)
-        series_stack = Series_Stack(settings,'new',file_path = config.test_measurements)
-        series_stack.populate_stack()
-        model = TimeSeriesNeuralNet(settings,False)
-        model.make_dataframe(series_stack)
-        model.setup_nn()       
+        model = bolierplate()       
         self.assertIsInstance(model.nn,tf.keras.Model)
 
+    #@unittest.skip('')
     def test_make_timeseries_dataset(self):
-        settings = set_settings(placeholder=True)
-        series_stack = Series_Stack(settings,'new',file_path = config.test_measurements)
-        series_stack.populate_stack()
-        model = TimeSeriesNeuralNet(settings,False)
-        model.make_dataframe(series_stack)
-        model.setup_nn()
+        model = bolierplate()
         model.make_timeseries_dataset()
         self.assertIsInstance(model.train_df,pd.DataFrame)
         self.assertIsInstance(obj=model.time_series.train,cls=tf.data.Dataset) 
     
-    @unittest.skip('redundant')        
+    #@unittest.skip('redundant')        
     def test_train(self):
-        settings = set_settings(placeholder=True)
-        series_stack = Series_Stack(settings,'new',file_path = config.test_measurements)
-        series_stack.populate_stack()
-        model = TimeSeriesNeuralNet(settings,False)
-        model.make_dataframe(series_stack)
-        model.setup_nn()
+        model = bolierplate(file_path = config.train_test_measurements)
         model.make_timeseries_dataset()
         model.train()
+        
+    @unittest.skip('they print the same but fail the test')
+    def test_save_and_load(self):
+        model1 = bolierplate(file_path = config.train_test_measurements)
+        model1.make_timeseries_dataset()
+        model1.train()
+        model1.save_nn(overwrite=True)
+        
+        model2 = bolierplate(file_path = config.train_test_measurements)
+        model2.make_timeseries_dataset()        
+        model2.load_nn()
+        print('\n',model1.nn.trainable_weights,'\n',model2.nn.trainable_weights,'\n')
+        tf.debugging.assert_equal(model1.nn.trainable_weights,model2.nn.trainable_weights)
     
-    @unittest.skip('takes long time')     
+    #@unittest.skip('takes long time')     
     def test_evalutate(self):
-        settings = set_settings(placeholder=True)
-        series_stack = Series_Stack(settings,'new',file_path = config.test_measurements)
-        series_stack.populate_stack()
-        model = TimeSeriesNeuralNet(settings,False)
-        model.make_dataframe(series_stack)
-        model.setup_nn()
+        model = bolierplate(file_path = config.train_test_measurements)
         model.make_timeseries_dataset()
-        model.train()
+        model.load_nn()
         model.evaluate()
+           
+    def test_predict(self):
+        model = bolierplate(file_path = config.train_test_measurements)
+        model.make_timeseries_dataset()
+        model.load_nn()
+        model.predict_single_sample()
            
     @unittest.skip('plots images')    
     def test_plot_history(self):
-        settings = set_settings(placeholder=True)
-        series_stack = Series_Stack(settings,'new',file_path = config.test_measurements)
-        series_stack.populate_stack()
-        model = TimeSeriesNeuralNet(settings,False)
-        model.make_dataframe(series_stack)
-        model.setup_nn()
+        model = bolierplate(file_path = config.train_test_measurements)
         model.make_timeseries_dataset()
         model.train()
         model.plot_history()
      
     @unittest.skip('return to this one')    
     def test_plot_test_loss(self):
-        settings = set_settings(placeholder=True)
-        series_stack = Series_Stack(settings,'new',file_path = config.train_test_measurements)
-        series_stack.populate_stack()
-        model = TimeSeriesNeuralNet(settings,False)
-        model.make_dataframe(series_stack)
-        model.setup_nn()
+        model = bolierplate(file_path = config.train_test_measurements)
         model.make_timeseries_dataset()
         model.train()
         model.evaluate()
         model.plot_test_loss()
-    
-    @unittest.skip('they print the same but fail the test')
-    def test_save_and_load(self):
-        settings = set_settings(placeholder=True)
-        series_stack = Series_Stack(settings,'new',file_path = config.train_test_measurements)
-        series_stack.populate_stack()
-        model1 = TimeSeriesNeuralNet(settings,False)
-        model1.make_dataframe(series_stack)
-        model1.setup_nn()
-        model1.make_timeseries_dataset()
-        model1.train()
-        model1.save_nn(overwrite=True)
         
-        model2 = TimeSeriesNeuralNet(settings,False)
-        model2.make_dataframe(series_stack)
-        model2.setup_nn()
-        model2.make_timeseries_dataset()        
-        model2.load_nn()
-        print('\n',model1.nn.trainable_weights,'\n',model2.nn.trainable_weights,'\n')
-        tf.debugging.assert_equal(model1.nn.trainable_weights,model2.nn.trainable_weights)
-        
-    def test_predict(self):
-        settings = set_settings(placeholder=True)
-        series_stack = Series_Stack(settings,'new',file_path = config.train_test_measurements)
-        series_stack.populate_stack()
-        model = TimeSeriesNeuralNet(settings,False)
-        model.make_dataframe(series_stack)
-        model.setup_nn()
+    def test_predict_single_sample(self):
+        model = bolierplate(file_path = config.train_test_measurements)
         model.make_timeseries_dataset()
-        model.train()
-        model.predict_single_sample()
-
+        model.load_nn()
+        model.predict_single_sample(n_samples=1)
         
 class set_settings_test(unittest.TestCase):
     def test_set_settings(self):
         self.assertEqual(set_settings(placeholder = True), settings_placeholder)
+
+def bolierplate(file_path = config.test_measurements,ph=True):
+    settings = set_settings(placeholder=ph)
+    series_stack = Series_Stack(settings,'new',file_path = file_path)
+    series_stack.populate_stack()
+    model = TimeSeriesNeuralNet(settings,False)
+    model.make_dataframe(series_stack)
+    model.setup_nn()   
+    return model
 
 if __name__ == '__main__':
     #file1 = config.test_measurements+'/aug 2020/Acc1/'+'Transmit_Streaming_MacId_00158D00000E054C_2020_08_01_02_34_42.txt'

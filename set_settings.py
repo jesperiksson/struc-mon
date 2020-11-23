@@ -6,9 +6,9 @@ settings_placeholder = {
     'features' : ['x','y','z'], # column heads in the data set 
     'target' : ['x'], # the target variable
     'data_split' : {
-        'train':0.7, 
+        'train':0.6, 
         'validation':0.2, 
-        'test':0.1
+        'test':0.2
         },
         } 
 def set_settings(placeholder = False):
