@@ -1,0 +1,21 @@
+import tensorflow as tf
+settings_nn = {
+    'input_width' : 3,
+    'label_width' : 1,
+    'shift' : 3,
+    'first_layer_width' : 3,
+    
+    'output_layer_width' : 1
+    }
+  
+settings_train = {
+    'epochs' : 100,
+    'batch_size' : 10,
+    'verbose' : 1
+    }
+    
+def set_up_model(arch):
+    inp = tf.keras.layers.Input(shape=(settings_nn['input_width'],))
+    x = tf.keras.layers.Dense(3)(inp)
+    out = tf.keras.layers.Dense(1)(x)
+    return tf.keras.Model(inputs = inp, outputs = out)

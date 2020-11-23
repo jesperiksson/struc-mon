@@ -1,7 +1,7 @@
 settings_placeholder = {
     'name' : 'placeholder', # Name of model
     'model' : 'test_NN', # which model from the model file
-    'model_path' : '/home/jesper/Kurser/Exjobb/ANN/code/struc-mon/models',
+    #'model_path' : '/home/jesper/Kurser/Exjobb/ANN/code/struc-mon/models',
     'use_date' : True, # put the date from the data files in the DataFrame
     'features' : ['x','y','z'], # column heads in the data set 
     'target' : ['x'], # the target variable
