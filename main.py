@@ -17,7 +17,7 @@ from sklearn import preprocessing
 from Menu import *
 from functions import *
 import config
-import set_settings
+import Settings
 import Model
 import Databatch
 

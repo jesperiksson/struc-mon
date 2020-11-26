@@ -1,5 +1,10 @@
+
+# Standard packages
 import sys
+
+# Self made modules
 from functions import *
+
 def menu(action = None):
     while True: # The infinite program-loop
         if action == None:

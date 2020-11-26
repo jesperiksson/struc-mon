@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-import os
-from datetime import datetime
-from datetime import timedelta
 
-from set_settings import set_settings
+import os
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+from Settings import Settings
 import config
 
 @dataclass
@@ -88,16 +88,16 @@ class DataBatch():
         
 class Series_Stack(): 
     
-    def __init__(self, settings, new_or_old,file_path=config.measurements): # file_path allows for testing
+    def __init__(self, learned = None, new=True, file_path=config.measurements): # file_path allows for testing
         '''
         Goes to the location specified by 'file_path' in config.py and set these files as available.
         If the model is reloaded it goes to settings to see which files it already knows.
         The files that are available but not learned are set to be learned.
         '''
-        if new_or_old == 'new':
+        if new:
             self.learned = set()    
-        elif new_or_old == 'old':
-            self.learned = settings['learned']
+        else :
+            self.learned = learned
         self.available = set()
         months = list(config.months_to_use)
         for i in range(len(months)):
@@ -110,7 +110,7 @@ class Series_Stack():
                     pass
         self.to_learn = list(self.available - self.learned)
         self.in_stack = set()
-        self.settings = settings
+        self.settings = Settings()
         self.stack = list()
 
     def populate_stack(self):
@@ -122,7 +122,7 @@ class Series_Stack():
                 filepath_or_buffer = self.to_learn[i],
                 delimiter = ';',
                 header = 22, # The header row happens to be on line 22
-                names = self.settings['features']+['Index'])
+                names = self.settings.features+['Index'])
             df = pd.DataFrame(acc)
             df['Index'] = df.index
             df.index = range(0,len(df.index))
@@ -132,10 +132,7 @@ class Series_Stack():
             content = self.read_file(self.to_learn[i])
             self.stack.append(self.get_Databatch(df, content))
             self.in_stack.update(self.to_learn[i])
-            if self.settings['use_date'] == True: # Add dates to the DataFrame
-                self.stack[i].add_date_to_df()
-            else: 
-                pass
+            self.stack[i].add_date_to_df()
             
     def get_Databatch(self,df, aux_data):
         '''

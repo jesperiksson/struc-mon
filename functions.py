@@ -1,8 +1,4 @@
-'''
-This module controls the program via calls from the menu (the user) 
 
-Move to menu ??
-'''
 
 # Imports
 # Standard stuff
@@ -12,7 +8,7 @@ import pandas as pd
 import config
 import Databatch
 from Model import Model, NeuralNet, TimeSeriesNeuralNet
-from set_settings import *
+from Settings import *
 
 ### FUNCTIONS FOR CREATING OR LOADING A MODEL ###
 def new_model():
