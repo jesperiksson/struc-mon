@@ -71,7 +71,7 @@ class DataBatch_test(unittest.TestCase):
     
 class Series_Stack_test(unittest.TestCase):
   
-
+    @unittest.skip('TODO')
     def test_init(self):
         settings = Settings()
         file1 = config.test_measurements+'/aug 2020/Acc1/Transmit_Streaming_MacId_00158D00000E054C_2020_08_01_02_34_42.txt'
