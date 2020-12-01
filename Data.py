@@ -133,6 +133,7 @@ class Series_Stack():
             self.stack.append(self.get_Databatch(df, content))
             self.in_stack.update(self.to_learn[i])
             self.stack[i].add_date_to_df()
+            #print(df.columns)
             
     def get_Databatch(self,df, aux_data):
         '''

@@ -1,6 +1,7 @@
 # https://www.tensorflow.org/tutorials/structured_data/time_series
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 class WindowGenerator():
     def __init__(
             self, 
@@ -10,7 +11,10 @@ class WindowGenerator():
             train_df, 
             val_df, 
             test_df,
-            label_columns=None):
+            label_columns=None,
+            train_batch_size = 32,
+            eval_batch_size = 32,
+            test_batch_size = 32):
         # Store the raw data.
         self.train_df = train_df
         self.val_df = val_df
@@ -35,6 +39,11 @@ class WindowGenerator():
         self.label_start = self.total_window_size - self.label_width
         self.labels_slice = slice(self.label_start, None)
         self.label_indices = np.arange(self.total_window_size)[self.labels_slice]
+        
+        #Set the batch_sizes
+        self.train_batch_size = train_batch_size 
+        self.eval_batch_size = eval_batch_size
+        self.test_batch_size = test_batch_size        
 
     def __repr__(self):
         return '\n'.join([
@@ -58,7 +67,7 @@ class WindowGenerator():
 
         return inputs, labels
         
-    def make_dataset(self, data):
+    def make_dataset(self, data, bs):
         data = np.array(data, dtype=np.float32)
         ds = tf.keras.preprocessing.timeseries_dataset_from_array(
             data=data,
@@ -66,7 +75,7 @@ class WindowGenerator():
             sequence_length=self.total_window_size,
             sequence_stride=1,
             shuffle=True,
-            batch_size=32,)
+            batch_size=bs,)
 
         ds = ds.map(self.split_window)
 
@@ -74,15 +83,15 @@ class WindowGenerator():
 
     @property
     def train(self):
-        return self.make_dataset(self.train_df)
+        return self.make_dataset(self.train_df, self.train_batch_size)
 
     @property
     def val(self):
-        return self.make_dataset(self.val_df)
+        return self.make_dataset(self.val_df, self.eval_batch_size)
 
     @property
     def test(self):
-        return self.make_dataset(self.test_df)
+        return self.make_dataset(self.test_df, self.test_batch_size)
 
     @property
     def example(self):
@@ -94,8 +103,8 @@ class WindowGenerator():
             # And cache it for next time
             self._example = result
         return result
-    '''        
-    def plot(self, model=None, plot_col='T (degC)', max_subplots=3):
+       
+    def plot(self, plot_col, model=None, max_subplots=3):
         inputs, labels = self.example
         plt.figure(figsize=(12, 8))
         plot_col_index = self.column_indices[plot_col]
@@ -106,27 +115,27 @@ class WindowGenerator():
             plt.plot(self.input_indices, inputs[n, :, plot_col_index],
                      label='Inputs', marker='.', zorder=-10)
 
-        if self.label_columns:
-            label_col_index = self.label_columns_indices.get(plot_col, None)
-        else:
-            label_col_index = plot_col_index
+            if self.label_columns:
+                label_col_index = self.label_columns_indices.get(plot_col, None)
+            else:
+                label_col_index = plot_col_index
 
-        if label_col_index is None:
-            continue
+            if label_col_index is None:
+                continue
 
-        plt.scatter(self.label_indices, labels[n, :, label_col_index],
-                    edgecolors='k', label='Labels', c='#2ca02c', s=64)
-        if model is not None:
-          predictions = model(inputs)
-          plt.scatter(self.label_indices, predictions[n, :, label_col_index],
-                      marker='X', edgecolors='k', label='Predictions',
-                      c='#ff7f0e', s=64)
+            plt.scatter(self.label_indices, labels[n, :, label_col_index],
+                        edgecolors='k', label='Labels', c='#2ca02c', s=64)
+            if model is not None:
+                predictions = model(inputs)
+                print(self.label_indices, predictions[n, :, label_col_index])
+                plt.scatter(self.label_indices, predictions[n, :, label_col_index],
+                          marker='X', edgecolors='k', label='Predictions',
+                          c='#ff7f0e', s=64)
 
-        if n == 0:
-            plt.legend()
+            if n == 0:
+                plt.legend()
 
-        plt.xlabel('Time [h]')
-    ''' 
+        plt.xlabel('Time [h]') 
         
 
 

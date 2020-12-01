@@ -7,7 +7,9 @@ train_test_measurements = file_path+'/train_test_measurements'
 
 import os 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-model_path = dir_path + '/models/'
+preset_path = dir_path + '/presets/'
+template_path = dir_path + '/templates/'
+saved_path = dir_path + '/saved/'
 
 months = {'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'}
 

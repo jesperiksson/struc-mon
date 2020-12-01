@@ -8,9 +8,11 @@ import matplotlib.pyplot as plt
 import time
 import importlib as il
 import sys
+import os
 
 # Self made modules
 import config
+import Make_model
 from WindowGenerator import *
 
 
@@ -31,13 +33,16 @@ class Model(): # Methods and features shared across all predictive models
         for i in range(len(series_stack.stack)):
             small_df = series_stack.stack[i].data
             big_df = big_df.append(small_df)
-        self.dataframe = big_df[self.settings.features]
+        #self.dataframe = big_df[self.settings.features]
         n = len(big_df)
         self.train_df = big_df[0:int(n*self.data_split.train)]
         self.val_df = big_df[
             int(n*self.data_split.train):int(n*self.data_split.validation) + int(n*self.data_split.train)
             ]
         self.test_df = big_df[-int(n*self.data_split.train):]
+        
+    def show_plot(self): # Shows the latest plot
+        plt.show()
         
         
         
@@ -48,9 +53,16 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         super().__init__(settings,existing_model)
 
     def setup_nn(self, print_summary=False):
-        sys.path.append(config.model_path+self.name)
-        module = il.import_module(self.settings.model) # Import the specified model from file with same name
-        learned = None # TBI
+        sys.path.append(config.preset_path)
+        if self.settings.use_preset == True:          
+            module = il.import_module(self.settings.preset) # Import the specified model from file with same name
+            learned = None # TBI
+        elif self.settings.use_preset == False:
+            module = il.import_module(self.settings.template) 
+            learned = None # TBI 
+        else: 
+            raise Exception('use_preset ambiguos') # should never happen           
+            
         self.settings_nn = module.Settings_nn()
         self.settings_train = module.Settings_train()
         self.settings_eval = module.Settings_eval()
@@ -97,6 +109,12 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         prediction = self.nn.predict(random_sample)
         print(random_sample,prediction)
         
+    def plot_example(self):
+        self.time_series.plot(
+            plot_col = self.settings_nn.plot_target,
+            model = self.nn)
+        plt.show()
+        
             
     def plot_history(self):
         key_list = list(self.history.history.keys())
@@ -111,18 +129,25 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         print(self.test_loss)
            
     def save_nn(self,overwrite=False):
-        print(config.model_path+self.settings.model+'/'+self.settings.name)
+        #print(config.saved_path+self.settings.name)
+        if self.settings.name not in os.listdir(config.saved_path):
+            os.mkdir(config.saved_path+self.settings.name)
+        else:
+            pass # TODO: prompt for over writing
         self.nn.save(
-            filepath = config.model_path+self.settings.model+'/'+self.settings.name,
+            filepath = config.saved_path+self.settings.name,
             overwrite = overwrite,
             include_optimizer = True,
             save_format = 'tf')
             
     def load_nn(self):
-        loaded_nn = tf.keras.models.load_model(
-            filepath = config.model_path+self.settings.model+'/'+self.settings.name,
-            compile = True)
-        self.nn = loaded_nn
+        if self.settings.name not in os.listdir(config.saved_path):
+            raise Exception('No module to load')
+        else:
+            loaded_nn = tf.keras.models.load_model(
+                filepath = config.saved_path+self.settings.name,
+                compile = True)
+            self.nn = loaded_nn
         
 class GenericNeuralNet(NeuralNet): # Manual settings (not 'genetic')
     def __init__(self,settings,existing_model): # OBSOLETE
@@ -143,19 +168,22 @@ class GenericNeuralNet(NeuralNet): # Manual settings (not 'genetic')
         pass
 
         
-class TimeSeriesNeuralNet(NeuralNet): # For time series MLPs, RNNs, CNNs, etc.
+class TimeSeriesNeuralNet(NeuralNet): # For RNNs, CNNs, etc.
     def __init__(self,settings,existing_model):
         super().__init__(settings,existing_model)
         
     def make_timeseries_dataset(self, print_shape=False):
         self.time_series = WindowGenerator(
-            input_width = self.settings_nn.input_width,
-            label_width = self.settings_nn.label_width,
+            input_width = self.settings_nn.input_time_steps,
+            label_width = self.settings_nn.target_time_steps,
             shift = self.settings_nn.shift,
-            train_df = self.train_df[self.settings_nn.pattern],
-            val_df = self.val_df[self.settings_nn.pattern],
-            test_df = self.test_df[self.settings_nn.pattern],
-            label_columns = self.settings_nn.pattern)
+            train_df = self.train_df[self.settings_nn.features],
+            val_df = self.val_df[self.settings_nn.features],
+            test_df = self.test_df[self.settings_nn.features],
+            label_columns = self.settings_nn.features,
+            train_batch_size = self.settings_train.batch_size,
+            eval_batch_size = self.settings_eval.batch_size,
+            test_batch_size = self.settings_test.batch_size)
         if print_shape:
             for example_inputs, example_labels in self.time_series.train.take(1):
                 print(f'Inputs shape (batch, time, features): {example_inputs.shape}')
