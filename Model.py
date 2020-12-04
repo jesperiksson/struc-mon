@@ -3,6 +3,7 @@
 import tensorflow as tf
 import pandas as pd
 import matplotlib.pyplot as plt
+import scipy.stats as stats
 
 # Standard packages
 import time
@@ -44,6 +45,23 @@ class Model(): # Methods and features shared across all predictive models
     def show_plot(self): # Shows the latest plot
         plt.show()
         
+    def detect_outliers(self):
+        statistic , pvalue = stats.normaltest(self.residual)
+        np.set_printoptions(precision=4)
+        print(statistic, pvalue)
+        
+    def plot_outliers(self):
+        fig, ax  = plt.subplots(nrows=2,ncols=1)
+        #print(self.residual.numpy()[:,0,0])
+        ax[0].scatter(
+            np.arange(0,np.shape(self.residual.numpy())[0]), 
+            self.residual.numpy()[:,0,0],
+            marker = 'o',
+            s = 0.1)
+        ax[1].hist(
+            self.residual.numpy()[:,0,0],
+            bins = 100)
+        plt.show()
         
         
         # methods for visualizing data
@@ -52,7 +70,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
     def __init__(self,settings,existing_model):
         super().__init__(settings,existing_model)
 
-    def setup_nn(self, print_summary=False):
+    def setup_nn(self, print_summary=False,plot_model=False):
         sys.path.append(config.preset_path)
         if self.settings.use_preset == True:          
             module = il.import_module(self.settings.preset) # Import the specified model from file with same name
@@ -78,6 +96,13 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             metrics = self.settings_train.metrics)      
         if print_summary:
             self.nn.summary() 
+        if plot_model:
+            tf.keras.utils.plot_model(
+                self.nn, 
+                config.saved_path+self.settings.name+'/model_plot.jpeg',
+                show_shapes = True,
+                show_layer_names = True,
+                dpi = 150)
         return learned
             
     def train(self):
@@ -97,12 +122,16 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             verbose = self.settings_eval.verbose
         )
         
-    def predict(self):
-        self.performance = self.nn.evaluate(
+    def test(self):
+        prediction = self.nn.predict(
             self.time_series.test,
             batch_size = self.settings_test.batch_size,
             verbose = self.settings_test.verbose
         )
+        #print(self.prediction,tf.shape(self.performance))
+        ground_truth = tf.concat([y for x, y in self.time_series.test], axis=0)
+        self.residual = tf.math.subtract(prediction,ground_truth,name='residual')
+        
         
     def predict_single_sample(self,n_samples = 1):
         random_sample = self.time_series.test.take(n_samples)
