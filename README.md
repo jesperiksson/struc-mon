@@ -1,48 +1,32 @@
 # struc-mon
 
-## How to run the code (Linux)
+## Linux
+# Downloads and setup
 1. Clone this repository into the desired folder: `git clone https://github.com/jesperiksson/struc-mon` .
 2. Make sure you have at least Python 3.7 installed: ´python --version´. Othervise update: https://docs.python-guide.org/starting/install3/linux/
 3. Make sure you either have Anaconda installed: https://docs.anaconda.com/anaconda/install/ or have the following packages installed:
-  Matplotlib.pyplot - For plots
-  Numpy - For maths
-  Pandas - For data frames
-  SciPy - For signal analysis
-  sklearn - For normalization
-  Tensorflow 2.3 - For machine learning 
-  Otherwise they can be installed using pip:
-  `pip install pip`
-  \nMatplotlib: https://pypi.org/project/matplotlib/
-  \nNumpy: https://numpy.org/install/
-  \nPandas: https://pypi.org/project/pandas/ 
-  \nSciPy: https://www.scipy.org/install.html
-  \nsklearn: https://scikit-learn.org/stable/install.html
-  \nTensorflow: https://www.tensorflow.org/install/pip
-4. Open the file in the repo named `config.py` and provide the path to the folder where the measurement files are stored in the variable `file_path`,
-   e.g. `file_path = 'home/user/measurements'` 
-5. Open the file `Settings.py` and set the ´model´ attribute to the name of the model file you want to run (e.g. `test_NN.py`). Then set ´name´ attribute to the name of the model (these could be the same).
-6. 
+  Matplotlib.pyplot - For plots \
+  Numpy - For maths \
+  Pandas - For data frames \
+  SciPy - For signal analysis \
+  sklearn - For normalization \
+  Tensorflow 2.3 - For machine learning \ 
+  Otherwise they can be installed using pip: \
+  `pip install pip`\
+  Matplotlib: https://pypi.org/project/matplotlib/ \
+  Numpy: https://numpy.org/install/ \
+  Pandas: https://pypi.org/project/pandas/ \
+  SciPy: https://www.scipy.org/install.html \
+  sklearn: https://scikit-learn.org/stable/install.html \
+  Tensorflow: https://www.tensorflow.org/install/pip \
+4. Open the file in the repo named `config.py` and provide the path to the folder where the measurement files are stored in the variable `file_path`, e.g. `file_path = 'home/user/measurements'` 
 
-Toolbox for analyzing bridges using ANN and other methods. 
-This project was initially developed for a Master's thesis on the topic of Structural Health Monitoring.
+# Editing models, chosing data, etc.
+The code modules containing the neural nets are located in the folder `presets`. In order to set hyperparameters: pick a template file, make a copy of it and set the wanted hyperparameters and settings. In order to chose the wanted: either set the `preset` option to the name of the file or run the code with the appropriate flags (see next step)
 
-The program is written with the intent of being highly modular in order to make it easy to implement new methods.
+# Initializing, training and evaluating
 
-Required Libraries:
-Keras
-Matplotlib
-NumPy
-SciPy
-sklearn
-TensorFlow 2.0
+Run the main file in a terminal: `python3 main.py`. There are a number of additional arguments that can be set. Run the program with the help flag in order to view these: `python3 main.py -h`. Among others, the preset and weather to train a new net or load an existing one can be set. 
 
-The program is executed from the run.py file. 
 
-Data is imported and made into instances of the Databatch class. The Databatch class has several sub-classes,
-where each subclass manipulates the data in a certain way. The Peaks subclass chooses the peak signals and 
-their indices for instance. 
-
-Models (neural nets) are objects belonging to the NeuralNet class which has sublclasses for each type of neural net.
-Different models within each type of neural net are defined by their respective function within said NeuralNet 
-sub-class. The Subclasses has their own methods for training, evaluation, prediction and forecasting. 
 
