@@ -12,21 +12,12 @@ class Settings_nn():
     features : list = field(default_factory=lambda:['x'])
     targets : list = field(default_factory=lambda:['x'],)
     plot_target : str = 'x'
-    
-    @property
-    def n_features(self):
-        return len(self.features)
-    
-    @property
-    def n_targets(self):
-        return len(self.targets)
-    
+    verbose : int = 1
 
 @dataclass
 class Settings_train():
     epochs : int = 1
-    batch_size : int = 20
-    verbose : int = 1
+    batch_size : int = 20  
     loss : str = 'mse'
     optimizer : str = 'Adam'
     metrics : str = 'mae'
@@ -34,12 +25,10 @@ class Settings_train():
 @dataclass
 class Settings_eval():
     batch_size : int = 20
-    verbose : int = 1
 
 @dataclass   
 class Settings_test():
     batch_size : int = 20
-    verbose : int = 1
 
 @dataclass    
 class DataSplit():

@@ -22,7 +22,13 @@ class Model(): # Methods and features shared across all predictive models
         
         self.settings = settings
         self.name = settings.name
-        self.existing_model = existing_model  
+        self.existing_model = existing_model
+        
+    def __repr__(self): # Not in use currently
+        return repr(
+            f'Model name: %s, model preset: %s',
+            self.name,
+            self.preset)  
       
     def make_dataframe(self,series_stack): # makes a dataframe out of all the smaller dataframes
         # concatenate dataframes into a big dataframe
@@ -45,14 +51,13 @@ class Model(): # Methods and features shared across all predictive models
     def show_plot(self): # Shows the latest plot
         plt.show()
         
-    def detect_outliers(self):
+    def detect_outliers(self): # Calculates p-value for residual
         statistic , pvalue = stats.normaltest(self.residual)
         np.set_printoptions(precision=4)
         print(statistic, pvalue)
         
-    def plot_outliers(self):
+    def plot_outliers(self): # Plots histogram of predictions an a scatterplot
         fig, ax  = plt.subplots(nrows=2,ncols=1)
-        #print(self.residual.numpy()[:,0,0])
         ax[0].scatter(
             np.arange(0,np.shape(self.residual.numpy())[0]), 
             self.residual.numpy()[:,0,0],
@@ -63,24 +68,26 @@ class Model(): # Methods and features shared across all predictive models
             bins = 100)
         plt.show()
         
+    def print_summary(self):
+        self.nn.summary()
         
-        # methods for visualizing data
 
 class NeuralNet(Model): # Methods and features shared among all Keras Neural Nets
     def __init__(self,settings,existing_model):
         super().__init__(settings,existing_model)
 
-    def setup_nn(self, print_summary=False,plot_model=False):
+    def setup_nn(self, plot_model=False):
         sys.path.append(config.preset_path)
         if self.settings.use_preset == True:          
             module = il.import_module(self.settings.preset) # Import the specified model from file with same name
             learned = None # TBI
-        elif self.settings.use_preset == False:
+        elif self.settings.use_preset == False: # To be implemented
             module = il.import_module(self.settings.template) 
             learned = None # TBI 
         else: 
             raise Exception('use_preset ambiguos') # should never happen           
-            
+          
+        # Record settings from the neural net module    
         self.settings_nn = module.Settings_nn()
         self.settings_train = module.Settings_train()
         self.settings_eval = module.Settings_eval()
@@ -90,12 +97,10 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         # learning rate decay
         # learning algortihm
         # other stuff
-        self.nn.compile(
+        self.nn.compile( # compile the net
             loss = self.settings_train.loss,
             optimizer = self.settings_train.optimizer,
             metrics = self.settings_train.metrics)      
-        if print_summary:
-            self.nn.summary() 
         if plot_model:
             tf.keras.utils.plot_model(
                 self.nn, 
@@ -105,7 +110,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
                 dpi = 150)
         return learned
             
-    def train(self):
+    def train(self): # Train the neural net
         for example_inputs, example_labels in self.time_series.train.take(1):
             print(f'Inputs shape (batch, time, features): {example_inputs.shape}')
             print(f'Labels shape (batch, time, features): {example_labels.shape}')
@@ -113,49 +118,41 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             self.time_series.train,
             epochs = self.settings_train.epochs,
             batch_size = self.settings_train.batch_size,
-            verbose = self.settings_train.verbose)
+            verbose = self.settings_nn.verbose)
 
-    def evaluate(self):
+    def evaluate(self): # Evaluate the neural net
         self.test_loss = self.nn.evaluate(
             self.time_series.val,
             batch_size = self.settings_eval.batch_size,
-            verbose = self.settings_eval.verbose
+            verbose = self.settings_nn.verbose
         )
         
-    def test(self):
+    def test(self): # Test the neural net
         prediction = self.nn.predict(
             self.time_series.test,
             batch_size = self.settings_test.batch_size,
-            verbose = self.settings_test.verbose
+            verbose = self.settings_nn.verbose
         )
-        #print(self.prediction,tf.shape(self.performance))
         ground_truth = tf.concat([y for x, y in self.time_series.test], axis=0)
         self.residual = tf.math.subtract(prediction,ground_truth,name='residual')
         
         
-    def predict_single_sample(self,n_samples = 1):
-        random_sample = self.time_series.test.take(n_samples)
-        prediction = self.nn.predict(random_sample)
-        print(random_sample,prediction)
-        
-    def plot_example(self):
+    def plot_example(self): # Plot an input-output example
         self.time_series.plot(
             plot_col = self.settings_nn.plot_target,
             model = self.nn)
         plt.show()
         
             
-    def plot_history(self):
+    def plot_history(self): # Plot the training history for each metric
         key_list = list(self.history.history.keys())
         [plt.plot(self.history.history[key]) for key in key_list]
         plt.legend(key_list)
-        plt.title('Training history for '+self.name+', trained for '+self.settings_train.epochs+'epochs')
+        plt.title(f'Training history for {self.name}, trained for {self.settings_train.epochs} epochs')
         plt.xlabel('epoch')
         plt.ylabel('error') 
         plt.show()
         
-    def plot_test_loss(self):
-        print(self.test_loss)
            
     def save_nn(self,overwrite=False):
         #print(config.saved_path+self.settings.name)
@@ -164,7 +161,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         else:
             pass # TODO: prompt for over writing
         self.nn.save(
-            filepath = config.saved_path+self.settings.name,
+            filepath = config.saved_path+self.settings.name+self.settings.sensor,
             overwrite = overwrite,
             include_optimizer = True,
             save_format = 'tf')
@@ -177,24 +174,6 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
                 filepath = config.saved_path+self.settings.name,
                 compile = True)
             self.nn = loaded_nn
-        
-class GenericNeuralNet(NeuralNet): # Manual settings (not 'genetic')
-    def __init__(self,settings,existing_model): # OBSOLETE
-        super().__init__()   
-        
-    def make_data_set(self): # An tf.data.Dataset object made from the dataframe
-        self.dataset = tf.data.Dataset.from_tensor_slices(
-            (
-                tf.cast(self.dataframe[self.settings['features']].values, dtype=tf.float32),
-                tf.cast(self.dataframe[self.settings['target']].values, dtype=tf.float32)
-                )
-            )
-    
-    def make_iterator(self):
-        pass
-        
-    def make_model(self):
-        pass
 
         
 class TimeSeriesNeuralNet(NeuralNet): # For RNNs, CNNs, etc.
@@ -218,9 +197,5 @@ class TimeSeriesNeuralNet(NeuralNet): # For RNNs, CNNs, etc.
                 print(f'Inputs shape (batch, time, features): {example_inputs.shape}')
                 print(f'Labels shape (batch, time, features): {example_labels.shape}')
      
-def rmse(true, prediction):
-    return backend.sqrt(backend.mean(backend.square(prediction - true), axis=-1))
-def rmse_np(true, prediction):
-    return np.sqrt(np.mean(np.square(prediction - true), axis=-1))
     
 

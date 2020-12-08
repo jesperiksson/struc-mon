@@ -10,7 +10,8 @@ class Settings_nn():
     output_layer_width : int = 1
     activation_function : str = 'tanh'
     pattern : list = field(default_factory=lambda:['x'])
-    label : list = field(default_factory=lambda:['x'])
+    label : list = field(default_factory=lambda:['x'],)
+    
 
 @dataclass
 class Settings_train():

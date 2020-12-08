@@ -4,48 +4,31 @@ from dataclasses import dataclass, field
 @dataclass
 class Settings_nn():
     input_time_steps : int = 4
-    target_time_steps : int = 1
+    target_time_steps : int = 2
     shift : int = 1
     first_layer_width : int = 3
     activation_function : str = 'tanh'
     features : list = field(default_factory=lambda:['x'])
     targets : list = field(default_factory=lambda:['x'])
     plot_target : str = 'x'
+    verbose : int = 1    
     
-    @property
-    def n_features(self):
-        return self._n_features
-    
-    @n_features.setter
-    def n_features(self):
-        self._n_features = len(self.features)
-    
-    @property
-    def n_features(self):
-        return self._n_targets
-    
-    @n_features.setter
-    def n_features(self):
-        self._n_features = len(self.targets)
-
 @dataclass
 class Settings_train():
     epochs : int = 1
     batch_size : int = 20
-    verbose : int = 1
     loss : str = 'mse'
     optimizer : str = 'Adam'
     metrics : str = 'mae'
- 
+     
 @dataclass
 class Settings_eval():
     batch_size : int = 20
-    verbose : int = 1
 
 @dataclass   
 class Settings_test():
     batch_size : int = 20
-    verbose : int = 1
+
 
 @dataclass    
 class DataSplit():

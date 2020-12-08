@@ -23,10 +23,22 @@ NetworkId = {
     '0004' : 'Temp'
     }
     
-sensors_of_interest = {
-    0 : 'Acc1', 
-    1 : 'Acc2'
-    }
+acc_features = ['x','y','z']
+incl_features = ['x','y']
+strain_features = ['ch0','ch1','ch2','ch3']
+
+    
+sensors_dict = {
+    'acc' : 'Acceleration[g]',
+    'incl' : 'Inclination[deg]',
+    'strain' : 'Strain[mV]'
+}
+
+sensors_folders = {
+    'acc' : ['Acc1','Acc2'],
+    'incl' : ['Incl'],
+    'strain' : ['Strain']
+}
 
 MacId = {
     'Acc1' : '00158D00000E054C',
@@ -38,3 +50,5 @@ MacId = {
     
 dateformat = '%Y-%m-%d %H:%M:%S'
     
+figsize = [12,8] # [width, height]   
+ 

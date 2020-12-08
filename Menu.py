@@ -1,10 +1,25 @@
 
 # Standard packages
 import sys
-
+import argparse
 # Self made modules
-from functions import *
+#from functions import *
 
+
+
+class Menu():
+    def __init__(self): 
+        self.state = None
+        self.model = 'None'
+        parser = argparse.ArgumentParser()
+
+        args = parser.parse_args()
+        
+    def __repr__(self):
+        return repr(
+            f'Current model: {self.model}')        
+
+'''
 def menu(action = None):
     while True: # The infinite program-loop
         if action == None:
@@ -41,7 +56,7 @@ def prompt_action():
 
 def quit_program():
     sys.exit(1)
-
+'''
 
 
 
