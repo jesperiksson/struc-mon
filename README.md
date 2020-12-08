@@ -12,12 +12,12 @@
   Tensorflow 2.3 - For machine learning 
   Otherwise they can be installed using pip:
   `pip install pip`
-  Matplotlib: https://pypi.org/project/matplotlib/
-  Numpy: https://numpy.org/install/
-  Pandas: https://pypi.org/project/pandas/ 
-  SciPy: https://www.scipy.org/install.html
-  sklearn: https://scikit-learn.org/stable/install.html
-  Tensorflow: https://www.tensorflow.org/install/pip
+  \nMatplotlib: https://pypi.org/project/matplotlib/
+  \nNumpy: https://numpy.org/install/
+  \nPandas: https://pypi.org/project/pandas/ 
+  \nSciPy: https://www.scipy.org/install.html
+  \nsklearn: https://scikit-learn.org/stable/install.html
+  \nTensorflow: https://www.tensorflow.org/install/pip
 4. Open the file in the repo named `config.py` and provide the path to the folder where the measurement files are stored in the variable `file_path`,
    e.g. `file_path = 'home/user/measurements'` 
 5. Open the file `Settings.py` and set the ´model´ attribute to the name of the model file you want to run (e.g. `test_NN.py`). Then set ´name´ attribute to the name of the model (these could be the same).
