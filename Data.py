@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import scipy.signal as signal
 
 # Standard packages
 import os
@@ -12,6 +13,7 @@ import random
 # Self made modules
 from Settings import Settings
 import config
+import Filter_Settings
 
 @dataclass
 class DataBatch():
@@ -80,6 +82,49 @@ class DataBatch():
         for i in range(len(features)): # Loop over features
             ax[i].plot(
                 self.data.index[start:stop],self.data[features[i]][start:stop],
+                linewidth = (stop-start)/1000,
+                zorder = 2)
+            ax[i].set_ylabel(f'{config.sensors_dict[sensor]}')
+            ax[i].grid(alpha = 0.2,zorder = 1)
+            ax[i].set_title(f'{features[i]}')
+        plt.xticks( # Set ticks each second inferred from the sampling rate
+            ticks = np.arange(start,stop,self.SamplingRate),
+            labels = np.arange(int(start/self.SamplingRate),int(stop/self.SamplingRate)+1,1)
+            )
+        plt.xlabel('Time[s]')
+        plt.suptitle(f'Sensor: {sensor}, Date: {self.Date}, Time step interval: {start}:{stop}')
+        plt.show()
+        
+    def filter_data(self,features):
+        self.filter_settings = Filter_Settings.Filter_Settings()
+        if self.filter_settings.filter_type == 'lowpass':
+            Wn = self.filter_settings.critical_frequency_low 
+        elif self.filter_settings.filter_type == 'highpass':
+            Wn = self.filter_settings.critiical_frequency_high
+        elif self.filter_settings.filter_type in ['bandpass','bandstop']:
+            Wn = [self.filter_settings.critical_frequency_low,self.filter_settings.critical_frequency_high]
+        else:
+            raise Exception('Wrong filter type')
+        sos = signal.butter(
+            N = self.filter_settings.order,
+            Wn = Wn,
+            btype = self.filter_settings.filter_type,
+            output = 'sos')
+        self.filtered = signal.sosfilt(sos,self.data[features])
+        
+        
+            
+    def plot_filtered_data(self,features,sensor,start=0,stop=1000):
+        fig, ax  = plt.subplots(
+            nrows = len(features), # one for each feature
+            ncols = 1,
+            sharex = True, # They are the same along the x-axis
+            sharey = False) # But differ along y
+        fig.set_size_inches(config.figsize[0],config.figsize[1])
+        for i in range(len(features)): # Loop over features
+            print(self.filtered)
+            ax[i].plot(
+                self.data.index[start:stop],self.filtered[features[i]][start:stop],
                 linewidth = (stop-start)/1000,
                 zorder = 2)
             ax[i].set_ylabel(f'{config.sensors_dict[sensor]}')

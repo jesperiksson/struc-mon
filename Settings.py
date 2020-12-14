@@ -8,6 +8,5 @@ class Settings:
     sensor : str = 'Acc'
     #features : list = field(default_factory= lambda : ['x','y','z']) # To be automated
     target : list = field(default_factory= lambda : ['x'])
-    
 
 

@@ -8,8 +8,8 @@ class Settings_nn():
     shift : int = 1
     first_layer_width : int = 3
     activation_function : str = 'tanh'
-    features : list = field(default_factory=lambda:['x'])
-    targets : list = field(default_factory=lambda:['x'])
+    features : list = field(default_factory=lambda:['ch1'])
+    targets : list = field(default_factory=lambda:['ch1'])
     plot_target : str = 'x'
     verbose : int = 1    
     

@@ -59,9 +59,9 @@ def main():
     if args.preset is not None:
         settings.preset = args.preset[0]
         print(settings.preset[0])
-    if args.load and args.name is not None: # Load an existing neural net with a given name    
-        settings.name = args.load
-
+    if args.load and args.name != None: # Load an existing neural net with a given name    
+        settings.name = args.name[0]
+    print(settings.name)
     if args.q:
         model.settings_nn.verbose = 0   
     if args.sensor == 'incl':
@@ -81,6 +81,7 @@ def main():
     model.make_dataframe(series_stack)
     model.make_timeseries_dataset()
     if args.load: # Load a neural, either with name from settings or with the name the user provided if it provided
+        print(settings.name)
         model.load_nn()
     else:
         model.train()

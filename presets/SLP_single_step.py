@@ -8,14 +8,14 @@ class Settings_nn():
     shift : int = 1
     first_layer_width : int = 3
     activation_function : str = 'tanh'
-    features : list = field(default_factory=lambda:['y'])
-    targets : list = field(default_factory=lambda:['y'],)
+    features : list = field(default_factory=lambda:['z'])
+    targets : list = field(default_factory=lambda:['z'],)
     plot_target : str = 'y'
     verbose : int = 1
 
 @dataclass
 class Settings_train():
-    epochs : int = 5
+    epochs : int = 1
     batch_size : int = 20
     #verbose : int = 1
     loss : str = 'mse'

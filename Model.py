@@ -168,6 +168,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             
     def load_nn(self):
         if self.settings.name not in os.listdir(config.saved_path):
+            print(f'No saved model named {self.settings.name}')
             raise Exception('No module to load')
         else:
             loaded_nn = tf.keras.models.load_model(
