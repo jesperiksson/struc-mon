@@ -1,4 +1,0 @@
-# Files 
-`config.py` - change file path, set the keywords for reading data (provided in the measurement files), data format, figure size, etc.
-
-`Data.py` - Contains the code classes for data series `DataBatch` and series stack `Series_Stack`, as well as subclasses to series stack for the three different kinds of data available at Västerbron: `Acc_Series_Stack`, `Incl_Series_Stack`, `Strain_Series_Stack`. In order to modify the code to accept data from other sources in other formats a new subclass will have to be added which transforms raw data into the format requested by `DataBatch`. The `DataBatch` objects are initialized by the `populate_stack()` method from the parent class `Series_Stack`.
