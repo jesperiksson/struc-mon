@@ -18,11 +18,10 @@ from WindowGenerator import *
 
 
 class Model(): # Methods and features shared across all predictive models 
-    def __init__(self,settings,existing_model):
+    def __init__(self,settings):
         
         self.settings = settings
         self.name = settings.name
-        self.existing_model = existing_model
         
     def __repr__(self): # Not in use currently
         return repr(
@@ -69,8 +68,8 @@ class Model(): # Methods and features shared across all predictive models
         
 
 class NeuralNet(Model): # Methods and features shared among all Keras Neural Nets
-    def __init__(self,settings,existing_model):
-        super().__init__(settings,existing_model)
+    def __init__(self,settings):
+        super().__init__(settings)
 
     def setup_nn(self, plot_model=False):
         sys.path.append(config.preset_path)
@@ -183,8 +182,8 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
 
         
 class TimeSeriesNeuralNet(NeuralNet): # For RNNs, CNNs, etc.
-    def __init__(self,settings,existing_model):
-        super().__init__(settings,existing_model)
+    def __init__(self,settings):
+        super().__init__(settings)
         
     def make_timeseries_dataset(self, print_shape=False):
         self.time_series = WindowGenerator(

@@ -1,0 +1,24 @@
+----------------------------------------------------------------------------------------------
+BeanDevice : Hi Inc Xrange
+
+Mac Id : 00158D00000E1024
+Network Id : 0005
+Pan Id : 3677
+Ratio : 1|1
+Offset : 0|0
+
+Unit for inclinometer : deg
+DATE_FORMAT : yyyy-MM-dd HH:mm:ss
+Date : 2020-08-01 02:34:42
+
+Data acquisition cycle : 14400
+Data acquisition duration : 600
+Sampling rate : 33
+Cut off frequency : 16
+----------------------------------------------------------------------------------------------
+Index;Measures Ch_X(deg);Ch_Y(deg)
+
+0;-0.81706345407603;17.7881213761296;
+1;-0.794111399491005;17.7846782610385;
+2;-0.791925496235007;17.7927122995199;
+

@@ -76,7 +76,7 @@ def main():
         settings.sensor = 'acc'
     series_stack.populate_stack()
     
-    model = TimeSeriesNeuralNet(settings,False)
+    model = TimeSeriesNeuralNet(settings)
     learned = model.setup_nn()
     
     model.make_dataframe(series_stack)
