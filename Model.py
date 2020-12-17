@@ -54,18 +54,14 @@ class Model(): # Methods and features shared across all predictive models
     def detect_outliers(self): # Calculates p-value for residual
         statistic , pvalue = stats.normaltest(self.residual)
         np.set_printoptions(precision=4)
-        print(statistic, pvalue)
         
     def plot_outliers(self): # Plots histogram of predictions an a scatterplot
-        fig, ax  = plt.subplots(nrows=2,ncols=1)
-        ax[0].scatter(
-            np.arange(0,np.shape(self.residual.numpy())[0]), 
-            self.residual.numpy()[:,0,0],
-            marker = 'o',
-            s = 0.1)
-        ax[1].hist(
+        #fig, ax  = plt.subplots(nrows=1,ncols=1)
+        plt.hist(
             self.residual.numpy()[:,0,0],
             bins = 100)
+        plt.title('Prediction errors')
+        plt.ylabel(f'Prediction error for {config.sensors_dict[self.settings.sensor]}')
         plt.show()
         
     def print_summary(self):
@@ -114,11 +110,13 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         for example_inputs, example_labels in self.time_series.train.take(1):
             print(f'Inputs shape (batch, time, features): {example_inputs.shape}')
             print(f'Labels shape (batch, time, features): {example_labels.shape}')
+        tic = time.time()  
         self.history = self.nn.fit(
             self.time_series.train,
             epochs = self.settings_train.epochs,
             batch_size = self.settings_train.batch_size,
             verbose = self.settings_nn.verbose)
+        self.toc = time.time() - tic
 
     def evaluate(self): # Evaluate the neural net
         self.test_loss = self.nn.evaluate(
@@ -148,18 +146,25 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         key_list = list(self.history.history.keys())
         [plt.plot(self.history.history[key]) for key in key_list]
         plt.legend(key_list)
-        plt.title(f'Training history for {self.name}, trained for {self.settings_train.epochs} epochs')
+        plt.title(f'Training history for {self.name}, trained for {self.settings_train.epochs} epochs. Elaspsed time: {self.toc}')
         plt.xlabel('epoch')
         plt.ylabel('error') 
+        plt.savefig(config.saved_path+self.settings.name+self.settings.sensor)
         plt.show()
         
            
     def save_nn(self,overwrite=False):
-        #print(config.saved_path+self.settings.name)
+        #if self.toc > 600 : # If the training took longer than 10 minutes
+        
         if self.settings.name not in os.listdir(config.saved_path):
             os.mkdir(config.saved_path+self.settings.name)
+        elif self.settings.name in os.listdir(config.saved_path):
+            self.name += '_change_name_'
+            
         else:
             pass # TODO: prompt for over writing
+        
+            
         self.nn.save(
             filepath = config.saved_path+self.settings.name+self.settings.sensor,
             overwrite = overwrite,

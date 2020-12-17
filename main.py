@@ -5,10 +5,11 @@
 import argparse
 
 # Other files
-from Data import Acc_Series_Stack, Incl_Series_Stack, Strain_Series_Stack
+from Data import AccSeriesStack, InclSeriesStack, StrainSeriesStack
 from Model import TimeSeriesNeuralNet
 from Settings import Settings
 import config
+import use_cases
 
 
 def main(): 
@@ -28,7 +29,7 @@ def main():
         nargs = 1,
         default = 'acc',
         type = str,
-        help = 'Which kind of data to use. These are available(keyword-sensor): acc - Acceleration[g], incl - Inclinations[deg], strain - Strain[mV]'
+        help = 'Which kind of data to use. These are available(keyword-sensor): \nacc - Acceleration[g] \nincl - Inclinations[deg] \nstrain - Strain[mV]'
         )
     parser.add_argument(
         '--preset',
@@ -65,14 +66,14 @@ def main():
     if args.q:
         model.settings_nn.verbose = 0   
     if args.sensor == 'incl':
-        series_stack = Incl_Series_Stack(settings,'new',file_path = config.measurements)
-        settings.sensors = 'Incl'
+        series_stack = InclSeriesStack(settings,'new',file_path = config.measurements)
+        settings.sensor = 'incl'
     elif args.sensor == 'strain':
-        series_stack = Strain_Series_Stack(settings,'new',file_path = config.measurements)
-        settings.sensors = 'Strain'
+        series_stack = StrainSeriesStack(settings,'new',file_path = config.measurements)
+        settings.sensor = 'strain'
     else: # Either acc by default or explicitly - doesnt matter
-        series_stack = Acc_Series_Stack(settings,'new',file_path = config.measurements)
-        settings.sensor = 'Acc'
+        series_stack = AccSeriesStack(settings,'new',file_path = config.measurements)
+        settings.sensor = 'acc'
     series_stack.populate_stack()
     
     model = TimeSeriesNeuralNet(settings,False)
@@ -81,7 +82,6 @@ def main():
     model.make_dataframe(series_stack)
     model.make_timeseries_dataset()
     if args.load: # Load a neural, either with name from settings or with the name the user provided if it provided
-        print(settings.name)
         model.load_nn()
     else:
         model.train()
@@ -90,7 +90,6 @@ def main():
         model.plot_history()
     model.evaluate()
     model.test()
-    model.detect_outliers()
     model.plot_outliers()
     model.plot_example()
             

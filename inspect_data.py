@@ -4,7 +4,7 @@
 import argparse
 
 # Other files
-from Data import Acc_Series_Stack, Incl_Series_Stack, Strain_Series_Stack
+from Data import AccSeriesStack, InclSeriesStack, StrainSeriesStack
 from Settings import Settings
 import config
 
@@ -44,17 +44,17 @@ def main():
     
     if args.sensor[0] == 'incl':
         settings.sensor = 'incl'
-        series_stack = Incl_Series_Stack(settings,'new',config.measurements)
+        series_stack = InclSeriesStack(settings,'new',config.measurements)
         
         features = config.incl_features
     elif args.sensor[0] == 'strain':
         settings.sensor = 'strain'
-        series_stack = Strain_Series_Stack(settings,'new',config.measurements)
+        series_stack = StrainSeriesStack(settings,'new',config.measurements)
         
         features = config.strain_features
     else: # Either acc by default or explicitly - doesnt matter
         settings.sensor = 'acc'
-        series_stack = Acc_Series_Stack(settings,'new',config.measurements)
+        series_stack = AccSeriesStack(settings,'new',config.measurements)
         
         features = config.acc_features
     series_stack.populate_stack()
@@ -62,7 +62,8 @@ def main():
     series = series_stack.pick_series()
     #series.plot_data(features,settings.sensor,args.start[0],args.stop[0])
     series.filter_data(features)
-    series.plot_filtered_data(features,settings.sensor,args.start[0],args.stop[0])
+    #series.plot_filtered_data(features,settings.sensor,args.start[0],args.stop[0])
+    series.rainflow(features,settings.sensor)
 
 if __name__ == "__main__":
     main()

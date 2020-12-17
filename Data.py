@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import scipy.signal as signal
+import rainflow as rf
 
 # Standard packages
 import os
@@ -13,15 +14,16 @@ import random
 # Self made modules
 from Settings import Settings
 import config
-import Filter_Settings
+import FilterSettings
+import RainflowSettings
 
 @dataclass
-class DataBatch():
+class DataSeries():
     '''
     This is a dataclass (which requires at leas Python 3.7)
     The attributes are only defined if they are available
     '''
-    data : pd.DataFrame(columns = ['placeholder']) # Columns created by get_databatch method
+    data : pd.DataFrame(columns = ['placeholder']) # Columns created by get_DataSeries method
 
     # Placeholder values    
     MacId : int = 0
@@ -96,7 +98,7 @@ class DataBatch():
         plt.show()
         
     def filter_data(self,features):
-        self.filter_settings = Filter_Settings.Filter_Settings()
+        self.filter_settings = FilterSettings.FilterSettings()
         if self.filter_settings.filter_type == 'lowpass':
             Wn = self.filter_settings.critical_frequency_low 
         elif self.filter_settings.filter_type == 'highpass':
@@ -110,7 +112,7 @@ class DataBatch():
             Wn = Wn,
             btype = self.filter_settings.filter_type,
             output = 'sos')
-        self.filtered = signal.sosfilt(sos,self.data[features])
+        self.filtered = pd.DataFrame(signal.sosfilt(sos,self.data[features]),columns = features)
         
         
             
@@ -122,9 +124,9 @@ class DataBatch():
             sharey = False) # But differ along y
         fig.set_size_inches(config.figsize[0],config.figsize[1])
         for i in range(len(features)): # Loop over features
-            print(self.filtered)
             ax[i].plot(
-                self.data.index[start:stop],self.filtered[features[i]][start:stop],
+                self.data.index[start:stop],
+                self.filtered[features[i]][start:stop],
                 linewidth = (stop-start)/1000,
                 zorder = 2)
             ax[i].set_ylabel(f'{config.sensors_dict[sensor]}')
@@ -138,10 +140,33 @@ class DataBatch():
         plt.suptitle(f'Sensor: {sensor}, Date: {self.Date}, Time step interval: {start}:{stop}')
         plt.show()
         
+    def rainflow(self,features,sensor='strain',start=0,stop=-1):
+        self.rainflow_settings = RainflowSettings.RainflowSettings()
+        fig, ax  = plt.subplots(
+            nrows = len(features), # one for each feature
+            ncols = 1,
+            sharex = True, # They are the same along the x-axis
+            sharey = False) # But differ along y
+        fig.set_size_inches(config.figsize[0],config.figsize[1])
+        rainflows = [rf.count_cycles(self.data[feature][start:stop],binsize=self.rainflow_settings.binsize) 
+            for feature in features]
+        for i in range(len(rainflows)): # Loop over features
+            #print(rainflows[i])
+            for j in range(len(rainflows[i])):
+                ax[i].plot(rainflows[i][j][0],rainflows[i][j][1],marker = '.',color = 'k')
+                print(rainflows[i][j][0],rainflows[i][j][1])
+            #ax[i].bar(np.array(rainflows[i])[0,:],np.array(rainflows[i])[1,:],width = 0.8,align='center')
+            ax[i].set_ylabel('Frequency')
+            ax[i].grid(alpha = 0.2,zorder = 1)
+        plt.xlabel(f'{config.sensors_dict[sensor]}')   
+        plt.show()
+                    
         
-class Series_Stack(): # object containing databatch objects and meta info
+        
+class SeriesStack(): # object containing DataSeries objects and meta info
     
-    def __init__(self, learned = None, new=True, file_path=config.measurements,sensor='acc'): # file_path allows for testing
+    def __init__(self, learned = None, new=True, file_path=config.measurements,
+                 sensor='acc',header=0,features=['f0']): # file_path allows for testing
         '''
         Goes to the location specified by 'file_path' in config.py and set these files as available.
         If the model is reloaded it goes to settings to see which files it already knows.
@@ -165,6 +190,49 @@ class Series_Stack(): # object containing databatch objects and meta info
         self.in_stack = set()
         self.settings = Settings()
         self.stack = list()
+        self.sensor = sensor
+        self.header = header
+        self.features = features
+        
+    def populate_stack(self,delimiter=';'):
+        for i in range(len(self.to_learn)):
+            acc = pd.read_table(
+                filepath_or_buffer = self.to_learn[i],
+                delimiter = delimiter,
+                header = self.header, # The header row happens to be on line 22
+                names = self.features+['Index'])
+            df = pd.DataFrame(acc)
+            df['Index'] = df.index
+            df.index = range(0,len(df.index))
+            cols = df.columns.tolist()
+            cols = cols[-1:] + cols[:-1] # move Index to front
+            df = df[cols]
+            content = self.read_file(self.to_learn[i])
+            self.stack.append(self.get_data_series(df, content))
+            self.in_stack.update(self.to_learn[i])
+            self.stack[i].add_date_to_df()
+
+    def get_data_series(self,df, aux_data):
+        data = df
+        tstart = aux_data.find('Mac Id : ')+9
+        MI = aux_data[tstart:tstart+16]
+        tstart = aux_data.find('Network Id : ')+13
+        NI = aux_data[tstart:tstart+4]
+        tstart = aux_data.find('Data acquisition cycle : ')+25
+        DAC = aux_data[tstart:tstart+5]
+        tstart = aux_data.find('Data acquisition duration : ')+28
+        DAD = aux_data[tstart:tstart+3]
+        tstart = aux_data.find('Sampling rate : ')+16
+        SR = int(aux_data[tstart:tstart+2])
+        if self.sensor in ['acc','incl']:
+            tstart = aux_data.find('Cut off frequency : ')+20
+            COF = aux_data[tstart:tstart+2]
+        else: # Strain doesnt have a Cut Off Frequenecy
+            COF = 0
+        tstart = aux_data.find('Date : ')+7
+        DATE = aux_data[tstart:tstart+19]
+        data = DataSeries(data,MI,NI,DAC,DAD,SR,COF,DATE)
+        return data  
         
     def read_file(self,path): 
         ''' 
@@ -180,147 +248,25 @@ class Series_Stack(): # object containing databatch objects and meta info
 
         return series  
             
-class Acc_Series_Stack(Series_Stack): # For the Acceleration data
-    def __init__(self, learned = None, new=True, file_path=config.measurements,sensor='acc'):
-        super().__init__(learned = None, new=True, file_path=config.measurements,sensor='acc')
-
-    def populate_stack(self,delimiter=';',header=22,features=config.acc_features):
-        '''
-        Goes to all the 'to_learn' files and records them into DataBatch object with a pd.DataFrame
-        '''
-        for i in range(len(self.to_learn)):
-            acc = pd.read_table(
-                filepath_or_buffer = self.to_learn[i],
-                delimiter = delimiter,
-                header = header, # The header row happens to be on line 22
-                names = features+['Index'])
-            df = pd.DataFrame(acc)
-            df['Index'] = df.index
-            df.index = range(0,len(df.index))
-            cols = df.columns.tolist()
-            cols = cols[-1:] + cols[:-1] # move Index to front
-            df = df[cols]
-            content = self.read_file(self.to_learn[i])
-            self.stack.append(self.get_Databatch(df, content))
-            self.in_stack.update(self.to_learn[i])
-            self.stack[i].add_date_to_df()
-            #print(df.columns)
-            
-    def get_Databatch(self,df, aux_data):
-        '''
-        Records the meta data such as sampling rate, which sensor, det etc.
-        '''
-        data = df
-        tstart = aux_data.find('Mac Id : ')+9
-        MI = aux_data[tstart:tstart+16]
-        tstart = aux_data.find('Network Id : ')+13
-        NI = aux_data[tstart:tstart+4]
-        tstart = aux_data.find('Data acquisition cycle : ')+25
-        DAC = aux_data[tstart:tstart+5]
-        tstart = aux_data.find('Data acquisition duration : ')+28
-        DAD = aux_data[tstart:tstart+3]
-        tstart = aux_data.find('Sampling rate : ')+16
-        SR = int(aux_data[tstart:tstart+2])
-        tstart = aux_data.find('Cut off frequency : ')+20
-        COF = int(aux_data[tstart:tstart+2])
-        tstart = aux_data.find('Date : ')+7
-        DATE = aux_data[tstart:tstart+19]
-        data = DataBatch(data,MI,NI,DAC,DAD,SR,COF,DATE)
-        return data    
+class AccSeriesStack(SeriesStack): # For the Acceleration data
+    def __init__(self, learned = None, new=True, file_path=config.measurements,sensor='acc',
+                header=22,features=config.acc_features):
+        super().__init__(learned = None, new=True, file_path=config.measurements,sensor='acc',
+                        header=22,features=config.acc_features)             
     
-class Incl_Series_Stack(Series_Stack): # For the inclination data
-    def __init__(self, learned = None, new=True, file_path=config.measurements,sensor='incl'):
-        super().__init__(learned = None, new=True, file_path=config.measurements,sensor='incl')
-
-    def populate_stack(self,delimiter=';',header=20,features=config.incl_features):
-        '''
-        Goes to all the 'to_learn' files and records them into DataBatch object with a pd.DataFrame
-        '''
-        for i in range(len(self.to_learn)):
-            acc = pd.read_table(
-                filepath_or_buffer = self.to_learn[i],
-                delimiter = delimiter,
-                header = header, # The header row happens to be on line 22
-                names = features+['Index'])
-            df = pd.DataFrame(acc)
-            df['Index'] = df.index
-            df.index = range(0,len(df.index))
-            cols = df.columns.tolist()
-            cols = cols[-1:] + cols[:-1] # move Index to front
-            df = df[cols]
-            content = self.read_file(self.to_learn[i])
-            self.stack.append(self.get_Databatch(df, content))
-            self.in_stack.update(self.to_learn[i])
-            self.stack[i].add_date_to_df()
-            #print(df.columns)
-            
-    def get_Databatch(self,df, aux_data):
-        '''
-        Records the meta data such as sampling rate, which sensor, det etc.
-        '''
-        data = df
-        tstart = aux_data.find('Mac Id : ')+9
-        MI = aux_data[tstart:tstart+16]
-        tstart = aux_data.find('Network Id : ')+13
-        NI = aux_data[tstart:tstart+4]
-        tstart = aux_data.find('Data acquisition cycle : ')+25
-        DAC = aux_data[tstart:tstart+5]
-        tstart = aux_data.find('Data acquisition duration : ')+28
-        DAD = aux_data[tstart:tstart+3]
-        tstart = aux_data.find('Sampling rate : ')+16
-        SR = int(aux_data[tstart:tstart+2])
-        tstart = aux_data.find('Cut off frequency : ')+20
-        COF = aux_data[tstart:tstart+2]
-        tstart = aux_data.find('Date : ')+7
-        DATE = aux_data[tstart:tstart+19]
-        data = DataBatch(data,MI,NI,DAC,DAD,SR,COF,DATE)
-        return data  
+class InclSeriesStack(SeriesStack): # For the inclination data
+    def __init__(self, learned = None, new=True,
+                file_path=config.measurements,sensor='incl',header=20,features=config.incl_features):
+        super().__init__(learned = None, new=True, file_path=config.measurements,sensor='incl',
+                        header=20,features=config.incl_features)         
     
-class Strain_Series_Stack(Series_Stack): # For the strain data
-    def __init__(self, learned = None, new=True, file_path=config.measurements,sensor='strain'):
-        super().__init__(learned = None, new=True, file_path=config.measurements,sensor='strain')
-
-    def populate_stack(self,delimiter=';',header=17,features=config.strain_features):
-        '''
-        Goes to all the 'to_learn' files and records them into DataBatch object with a pd.DataFrame
-        '''
-        for i in range(len(self.to_learn)):
-            acc = pd.read_table( # read data into a pd.DataFrame
-                filepath_or_buffer = self.to_learn[i],
-                delimiter = delimiter,
-                header = header, # The header row happens to be on line 22
-                names = features+['Index'])
-            df = pd.DataFrame(acc)
-            df['Index'] = df.index
-            df.index = range(0,len(df.index))
-            cols = df.columns.tolist()
-            cols = cols[-1:] + cols[:-1] # move Index to front
-            df = df[cols]
-            content = self.read_file(self.to_learn[i])
-            self.stack.append(self.get_Databatch(df, content))
-            self.in_stack.update(self.to_learn[i])
-            self.stack[i].add_date_to_df()
+class StrainSeriesStack(SeriesStack): # For the strain data
+    def __init__(self, learned = None, new=True, file_path=config.measurements,sensor='strain',
+                header=17,features=config.strain_features):
+        super().__init__(learned = None, new=True, file_path=config.measurements,sensor='strain',
+                        header=17,features=config.strain_features)
             
-    def get_Databatch(self,df, aux_data):
-        '''
-        Records the meta data such as sampling rate, which sensor, det etc.
-        '''
-        data = df
-        tstart = aux_data.find('Mac Id : ')+9
-        MI = aux_data[tstart:tstart+16]
-        tstart = aux_data.find('Network Id : ')+13
-        NI = aux_data[tstart:tstart+4]
-        tstart = aux_data.find('Data acquisition cycle : ')+25
-        DAC = aux_data[tstart:tstart+5]
-        tstart = aux_data.find('Data acquisition duration : ')+28
-        DAD = aux_data[tstart:tstart+3]
-        tstart = aux_data.find('Sampling rate : ')+16
-        SR = int(aux_data[tstart:tstart+2])
 
-        tstart = aux_data.find('Date : ')+7
-        DATE = aux_data[tstart:tstart+19]
-        data = DataBatch(data,MI,NI,DAC,DAD,SR,0,DATE) # Strain measurements have no cut off frequency
-        return data  
         
         
         
