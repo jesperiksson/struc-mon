@@ -30,6 +30,10 @@ The code modules containing the neural nets are located in the folder `presets`.
 
 Run the main file in a terminal: `python3 main.py`. There are a number of additional arguments that can be set. Run the program with the help flag in order to view these: `python3 main.py -h`. Among others, the preset and weather to train a new net or load an existing one can be set. 
 
+# Inspecting raw data
+
+The file `inspect_data.py` displays raw data when ran. As with the main file, type `python3 inspect_data.py -h` to list additional arguments, which include options to chose which sensor to look at, what interval, etc. For strain it is possible to view the rainflow diagram. 
+
 # Saving and loading
 
 Currently, the program saves every trained neural net. They are saved in the folder `saved` where each neural net that has been trained creates a folder. The folder is named by the combination of preset, model name and sensors it uses. If the program is ran twice without changing any of these three settings the program will face an already exixting folder with the same name as the one it is currently trying to create. In that case the program adds `_change_name_` to the name in order to not over write anything. 
