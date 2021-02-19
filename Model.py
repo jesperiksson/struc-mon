@@ -131,10 +131,13 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             verbose = self.settings_nn.verbose
         )
         ground_truth = tf.concat([y for x, y in self.time_series.test], axis=0)
+        #self.residual = tf.math.subtract(tf.squeeze(prediction),tf.squeeze(ground_truth),name='residual')
         self.residual = tf.math.subtract(prediction,ground_truth,name='residual')
         
         
     def plot_example(self): # Plot an input-output example
+        # Modellen predictar bara ett steg snarare än det som efterfrågas
+        print(self.nn)
         self.time_series.plot(
             plot_col = self.settings_nn.plot_target,
             model = self.nn)

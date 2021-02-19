@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 @dataclass()
 class Settings:
-    name : str = 'demonstration_MLP_aug' # Used to identify saved model
-    preset : str = 'MLP_multi_step_demonstration' # Must be the name of a module in /models
+    name : str = 'demonstration_SLP_multi_out_aug' # Used to identify saved model
+    preset : str = 'SLP_multi_step_output_demonstration' # Must be the name of a module in /presets
     use_preset : bool = True
     template : str = 'Single_layer_perceptron' # Only used if preset = False
     sensor : str = 'acc'

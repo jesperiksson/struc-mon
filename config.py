@@ -13,7 +13,7 @@ saved_path = dir_path + '/saved/'
 
 months = {'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'}
 
-months_to_use = {'aug 2020'}
+months_to_use = {'sep 2020 test'}
 
 NetworkId = {
     '0002' : 'Acc1', 

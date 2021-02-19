@@ -154,11 +154,12 @@ class DataSeries():
             #print(rainflows[i])
             for j in range(len(rainflows[i])):
                 ax[i].plot(rainflows[i][j][0],rainflows[i][j][1],marker = '.',color = 'k')
-                print(rainflows[i][j][0],rainflows[i][j][1])
+                #print(rainflows[i][j][0],rainflows[i][j][1])
             #ax[i].bar(np.array(rainflows[i])[0,:],np.array(rainflows[i])[1,:],width = 0.8,align='center')
             ax[i].set_ylabel('Frequency')
             ax[i].grid(alpha = 0.2,zorder = 1)
-        plt.xlabel(f'{config.sensors_dict[sensor]}')   
+        plt.xlabel(f'{config.sensors_dict[sensor]}')
+        plt.suptitle(f'Rainflow analysis')   
         plt.show()
                     
         

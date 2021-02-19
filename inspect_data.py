@@ -57,13 +57,15 @@ def main():
         series_stack = AccSeriesStack(settings,'new',config.measurements)
         
         features = config.acc_features
+        #
     series_stack.populate_stack()
     
     series = series_stack.pick_series()
-    #series.plot_data(features,settings.sensor,args.start[0],args.stop[0])
+    series.plot_data(features,settings.sensor,args.start[0],args.stop[0])
     series.filter_data(features)
-    #series.plot_filtered_data(features,settings.sensor,args.start[0],args.stop[0])
+    series.plot_filtered_data(features,settings.sensor,args.start[0],args.stop[0])
     series.rainflow(features,settings.sensor)
+    
 
 if __name__ == "__main__":
     main()
