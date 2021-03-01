@@ -59,10 +59,8 @@ def main():
     settings = Settings()
     if args.preset is not None:
         settings.preset = args.preset[0]
-        print(settings.preset[0])
     if args.load and args.name != None: # Load an existing neural net with a given name    
         settings.name = args.name[0]
-    print(settings.name)
     if args.q:
         model.settings_nn.verbose = 0   
     if args.sensor == 'incl':
@@ -71,9 +69,11 @@ def main():
     elif args.sensor == 'strain':
         series_stack = StrainSeriesStack(settings,'new',file_path = config.measurements)
         settings.sensor = 'strain'
-    else: # Either acc by default or explicitly - doesnt matter
+    elif args.sensor == 'acc' :
         series_stack = AccSeriesStack(settings,'new',file_path = config.measurements)
         settings.sensor = 'acc'
+    else: # Either acc by default or explicitly - doesnt matter
+        pass # use setting from Settings
     series_stack.populate_stack()
     
     model = TimeSeriesNeuralNet(settings)
