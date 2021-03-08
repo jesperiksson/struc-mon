@@ -38,6 +38,7 @@ class Model(): # Methods and features shared across all predictive models
             return
         for i in range(len(series_stack.stack)):
             small_df = series_stack.stack[i].data
+            #print(small_df.columns)
             big_df = big_df.append(small_df)
         #self.dataframe = big_df[self.settings.features]
         n = len(big_df)
@@ -60,7 +61,7 @@ class Model(): # Methods and features shared across all predictive models
             self.residual.numpy()[:,0,0],
             bins = 100)
         plt.title('Prediction errors')
-        plt.ylabel(f'Prediction error for {config.sensors_dict[self.settings.sensor]}')
+        plt.ylabel(f'Prediction error for {self.settings_nn.plot_target}')
         plt.show()
         
     def print_summary(self):
@@ -151,7 +152,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         plt.title(f'Training history for {self.name}, trained for {self.settings_train.epochs} epochs. Elaspsed time: {self.toc}')
         plt.xlabel('epoch')
         plt.ylabel('error') 
-        plt.savefig(config.saved_path+self.settings.name+self.settings.sensor)
+        plt.savefig(config.saved_path+self.settings.name+''.join(self.settings.sensors))
         plt.show()
         
            
@@ -168,7 +169,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         
             
         self.nn.save(
-            filepath = config.saved_path+self.settings.name+self.settings.sensor,
+            filepath = config.saved_path+self.settings.name+'_'.join(self.settings.sensors),
             overwrite = overwrite,
             include_optimizer = True,
             save_format = 'tf')
@@ -187,7 +188,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
 class TimeSeriesNeuralNet(NeuralNet): # For RNNs, CNNs, etc.
     def __init__(self,settings):
         super().__init__(settings)
-        
+     
     def make_timeseries_dataset(self, print_shape=False):
         self.time_series = WindowGenerator(
             input_width = self.settings_nn.input_time_steps,

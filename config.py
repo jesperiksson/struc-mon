@@ -13,7 +13,7 @@ saved_path = dir_path + '/saved/'
 
 months = {'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'}
 
-months_to_use = {'sep 2020 test'}
+months_to_use = {'sep 2020 test'}#','sep 2020'}
 
 NetworkId = {
     '0002' : 'Acc1', 
@@ -23,9 +23,17 @@ NetworkId = {
     '0004' : 'Temp'
     }
     
-acc_features = ['x','y','z']
-incl_features = ['x','y']
+acc1_features = ['x1','y1','z1']
+acc2_features = ['x2','y2','z2']
+incl_features = ['rx','ry']
 strain_features = ['ch0','ch1','ch2','ch3']
+
+feature_dict = {
+    'acc1' : acc1_features,
+    'acc2' : acc2_features,
+    'incl' : incl_features,
+    'strain': strain_features
+}
 
     
 sensors_dict = {
@@ -35,9 +43,10 @@ sensors_dict = {
 }
 
 sensors_folders = {
-    'acc' : ['Acc1','Acc2'],
-    'incl' : ['Incl'],
-    'strain' : ['Strain']
+    'acc1' : 'Acc1',
+    'acc2' : 'Acc2',
+    'incl' : 'Incl',
+    'strain' : 'Strain'
 }
 
 MacId = {
@@ -49,6 +58,14 @@ MacId = {
     }
     
 dateformat = '%Y-%m-%d %H:%M:%S'
+reg_dateformat = '\d\d\d\d[_]\d\d[_]\d\d[_]\d\d[_]\d\d[_]\d\d'
+
+header_row = {
+    'acc1' : 22,
+    'acc2' : 22,
+    'incl' : 20,
+    'strain':17
+}
     
 figsize = [12,8] # [width, height]   
  

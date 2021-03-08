@@ -10,6 +10,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import random
+import re
 
 # Self made modules
 from Settings import Settings
@@ -25,7 +26,7 @@ class DataSeries():
     '''
     data : pd.DataFrame(columns = ['placeholder']) # Columns created by get_DataSeries method
 
-    # Placeholder values    
+    # Placeholder values    ERSÄTT MED CONFIG
     MacId : int = 0
     NetworkId : int = 0
     DataAcqusitionCycle : int = 0
@@ -161,78 +162,104 @@ class DataSeries():
         plt.xlabel(f'{config.sensors_dict[sensor]}')
         plt.suptitle(f'Rainflow analysis')   
         plt.show()
-                    
-        
+              
+class AvailableDates():
+
+    def __init__(self,sensors, file_path):
+        self.complete_dates = dict()
+        # Eventually years will be needed
+        for month in list(config.months_to_use): # Count over months
+            dates = []
+            for sensor in sensors:
+                try:
+                    path = file_path + '/' + month +'/'+ config.sensors_folders[sensor]
+                    files = os.listdir(path)
+                    #print(re.findall(config.reg_dateformat,''.join(files)))
+                    dates.append(set(re.findall(config.reg_dateformat,''.join(files))))
+                    #self.available.update(set(path +'/'+ f for f in files))
+                except FileNotFoundError: 
+                    pass 
+            self.complete_dates.update({
+                month : set.intersection(*dates)
+                })
+        #print(self.complete_dates)
+                   
         
 class SeriesStack(): # object containing DataSeries objects and meta info
     
-    def __init__(self, learned = None, new=True, file_path=config.measurements,
-                 sensor='acc',header=0,features=['f0']): # file_path allows for testing
+    def __init__(self, settings, learned = dict(), new=True, file_path=config.measurements,
+                 header=0): # file_path allows for testing
         '''
         Goes to the location specified by 'file_path' in config.py and set these files as available.
         If the model is reloaded it goes to settings to see which files it already knows.
         The files that are available but not learned are set to be learned.
         '''
+        self.settings = settings
+        self.file_path = file_path
         if new:
-            self.learned = set() # set() type to make sure there are no duplicates
+            self.learned = dict() 
         else :
             self.learned = learned
-        self.available = set()
-        months = list(config.months_to_use) #specify the months whose data to use
-        for i in range(len(months)): # Count over months
-            for j in range(len(config.sensors_folders[sensor])): # Cont over sensors
-                try:
-                    path = file_path + '/' + months[i] +'/'+ config.sensors_folders[sensor][j]
-                    files = os.listdir(path)
-                    self.available.update(set(path +'/'+ f for f in files))
-                except FileNotFoundError: 
-                    pass
-        self.to_learn = list(self.available - self.learned)
+        self.available = AvailableDates(settings.sensors, file_path)
+        self.to_learn = {
+            k:v for k,v in self.available.complete_dates.items() 
+            if k not in self.learned or v != self.learned[k]
+            }
         self.in_stack = set()
-        self.settings = Settings()
         self.stack = list()
-        self.sensor = sensor
         self.header = header
-        self.features = features
+        
+    def get_folder(self,month,sensor):
+        name = self.file_path + '/' + month + '/' + config.sensors_folders[sensor]
+        return name
         
     def populate_stack(self,delimiter=';'):
-        for i in range(len(self.to_learn)):
-            acc = pd.read_table(
-                filepath_or_buffer = self.to_learn[i],
-                delimiter = delimiter,
-                header = self.header, # The header row happens to be on line 22
-                names = self.features+['Index'])
-            df = pd.DataFrame(acc)
-            df['Index'] = df.index
-            df.index = range(0,len(df.index))
-            cols = df.columns.tolist()
-            cols = cols[-1:] + cols[:-1] # move Index to front
-            df = df[cols]
-            content = self.read_file(self.to_learn[i])
-            self.stack.append(self.get_data_series(df, content))
-            self.in_stack.update(self.to_learn[i])
-            self.stack[i].add_date_to_df()
+        content = pd.DataFrame()
+        for month in self.to_learn.keys():
+            for date in self.to_learn[month]:
+                print(date)
+                df_list = []
+                for sensor in self.settings.sensors: 
+                    folder_name = self.get_folder(month,sensor)
+                    all_files = os.listdir(folder_name)
+                    measurement_file = [mfile for mfile in all_files if date in mfile and '.swp' not in mfile]
+                    print(measurement_file,'\n')
+                    #print(folder_name + '/' + measurement_file)
+                    piece_of_content = pd.read_table(
+                        filepath_or_buffer = folder_name + '/' + measurement_file[0], 
+                        delimiter = delimiter,
+                        header = config.header_row[sensor], 
+                        names = config.feature_dict[sensor] + ['Index'+sensor])
+                    df = pd.DataFrame(piece_of_content)
+                    df['Index'+sensor] = df.index
+                    df.index = range(0,len(df.index))
+                    cols = df.columns.tolist()
+                    cols = cols[-1:] + cols[:-1] # move Index to front
+                    df = df[cols]
+                    #print(df)
+                    df_list.append(df)
+                DF = df_list[0].join(df_list[1:])
+                DF.dropna(axis = 'index', how = 'any', inplace = True)
+                #print(DF)
 
-    def get_data_series(self,df, aux_data):
-        data = df
-        tstart = aux_data.find('Mac Id : ')+9
-        MI = aux_data[tstart:tstart+16]
-        tstart = aux_data.find('Network Id : ')+13
-        NI = aux_data[tstart:tstart+4]
-        tstart = aux_data.find('Data acquisition cycle : ')+25
-        DAC = aux_data[tstart:tstart+5]
-        tstart = aux_data.find('Data acquisition duration : ')+28
-        DAD = aux_data[tstart:tstart+3]
-        tstart = aux_data.find('Sampling rate : ')+16
-        SR = int(aux_data[tstart:tstart+2])
-        if self.sensor in ['acc','incl']:
-            tstart = aux_data.find('Cut off frequency : ')+20
-            COF = aux_data[tstart:tstart+2]
-        else: # Strain doesnt have a Cut Off Frequenecy
-            COF = 0
-        tstart = aux_data.find('Date : ')+7
-        DATE = aux_data[tstart:tstart+19]
-        data = DataSeries(data,MI,NI,DAC,DAD,SR,COF,DATE)
+                #df = pd.DataFrame(content)
+                #df['Index'] = df.index
+                #df.index = range(0,len(df.index))
+                #cols = df.columns.tolist()
+                #cols = cols[-1:] + cols[:-1] # move Index to front
+                #df = df[cols]
+                #content = self.read_file(self.to_learn[i])
+                self.stack.append(self.get_data_series(DF))
+                self.in_stack.update(date)
+                #self.stack[i].add_date_to_df()
+
+    #def populate_stack_multi(self,delimiter=';'):
+     #   for i in range(len(self.to_learn)/):    
+    
+
+    def get_data_series(self,df):
+
+        data = DataSeries(df)
         return data  
         
     def read_file(self,path): 
@@ -248,25 +275,25 @@ class SeriesStack(): # object containing DataSeries objects and meta info
         series = list(self.stack)[index]
 
         return series  
-            
+'''        
 class AccSeriesStack(SeriesStack): # For the Acceleration data
-    def __init__(self, learned = None, new=True, file_path=config.measurements,sensor='acc',
+    def __init__(self, learned = None, new=True, file_path=config.measurements,sensor=['acc'],
                 header=22,features=config.acc_features):
-        super().__init__(learned = None, new=True, file_path=config.measurements,sensor='acc',
+        super().__init__(learned = None, new=True, file_path=config.measurements,sensor=['acc'],
                         header=22,features=config.acc_features)             
     
 class InclSeriesStack(SeriesStack): # For the inclination data
     def __init__(self, learned = None, new=True,
-                file_path=config.measurements,sensor='incl',header=20,features=config.incl_features):
-        super().__init__(learned = None, new=True, file_path=config.measurements,sensor='incl',
+                file_path=config.measurements,sensor=['incl'],header=20,features=config.incl_features):
+        super().__init__(learned = None, new=True, file_path=config.measurements,sensors=['incl'],
                         header=20,features=config.incl_features)         
     
 class StrainSeriesStack(SeriesStack): # For the strain data
-    def __init__(self, learned = None, new=True, file_path=config.measurements,sensor='strain',
+    def __init__(self, learned = None, new=True, file_path=config.measurements,sensors=['strain'],
                 header=17,features=config.strain_features):
-        super().__init__(learned = None, new=True, file_path=config.measurements,sensor='strain',
+        super().__init__(learned = None, new=True, file_path=config.measurements,sensors=['strain'],
                         header=17,features=config.strain_features)
-            
+  '''          
 
         
         

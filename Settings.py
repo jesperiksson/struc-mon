@@ -5,8 +5,6 @@ class Settings:
     preset : str = 'LSTM_multi_step_output_strain_demonstration' # Must be the name of a module in /presets
     use_preset : bool = True
     template : str = 'Single_layer_perceptron' # Only used if preset = False
-    sensor : str = 'strain'
-    #features : list = field(default_factory= lambda : ['x','y','z']) # To be automated
-    #target : list = field(default_factory= lambda : ['ch0'])
+    sensors : list = field(default_factory=lambda:['acc1','acc2','incl'])
 
 
