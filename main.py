@@ -5,7 +5,7 @@
 import argparse
 
 # Other files
-from ProgramRunner import ProgramRunner
+from ProgramRunnerPostgres import ProgramRunner
 from Settings import Settings
 import config
 

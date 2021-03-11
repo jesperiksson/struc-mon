@@ -123,7 +123,6 @@ class WindowGenerator():
 
                 if label_col_index is None:
                     continue
-                print(self.label_indices, labels[n, :, label_col_index])
                 plt.scatter(self.label_indices, labels[n, :, label_col_index],
                             edgecolors='k', label='Labels', c='#2ca02c', s=64)
                 if model is not None:

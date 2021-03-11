@@ -4,6 +4,7 @@ import tensorflow as tf
 import pandas as pd
 import matplotlib.pyplot as plt
 import scipy.stats as stats
+import tensorflow_io as tfio
 
 # Standard packages
 import time
@@ -16,6 +17,7 @@ import config
 import Make_model
 from WindowGenerator import *
 
+tf.get_logger().setLevel('ERROR')
 
 class Model(): # Methods and features shared across all predictive models 
     def __init__(self,settings):
@@ -29,7 +31,8 @@ class Model(): # Methods and features shared across all predictive models
             self.name,
             self.preset)  
       
-    def make_dataframe(self,series_stack): # makes a dataframe out of all the smaller dataframes
+    def train_test_split(self,df): # makes a dataframe out of all the smaller dataframes
+        '''
         # concatenate dataframes into a big dataframe
         try: # See if the series_stack is populated
             big_df = pd.DataFrame(columns=series_stack.stack[0].data.columns)
@@ -41,12 +44,14 @@ class Model(): # Methods and features shared across all predictive models
             #print(small_df.columns)
             big_df = big_df.append(small_df)
         #self.dataframe = big_df[self.settings.features]
-        n = len(big_df)
-        self.train_df = big_df[0:int(n*self.data_split.train)]
-        self.val_df = big_df[
+        '''
+        
+        n = len(df)
+        self.train_df = df[0:int(n*self.data_split.train)]
+        self.val_df = df[
             int(n*self.data_split.train):int(n*self.data_split.validation) + int(n*self.data_split.train)
             ]
-        self.test_df = big_df[-int(n*self.data_split.train):]
+        self.test_df = df[-int(n*self.data_split.train):]
         
     def show_plot(self): # Shows the latest plot
         plt.show()
@@ -66,6 +71,8 @@ class Model(): # Methods and features shared across all predictive models
         
     def print_summary(self):
         self.nn.summary()
+        
+        
         
 
 class NeuralNet(Model): # Methods and features shared among all Keras Neural Nets
@@ -157,19 +164,20 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         
            
     def save_nn(self,overwrite=False):
-        #if self.toc > 600 : # If the training took longer than 10 minutes
-        
+        '''
         if self.settings.name not in os.listdir(config.saved_path):
             os.mkdir(config.saved_path+self.settings.name)
         elif self.settings.name in os.listdir(config.saved_path):
             self.name += '_change_name_'
             
+            
         else:
             pass # TODO: prompt for over writing
+            '''
         
             
         self.nn.save(
-            filepath = config.saved_path+self.settings.name+'_'.join(self.settings.sensors),
+            filepath = config.saved_path+self.settings.name,
             overwrite = overwrite,
             include_optimizer = True,
             save_format = 'tf')

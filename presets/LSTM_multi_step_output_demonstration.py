@@ -1,6 +1,8 @@
 import tensorflow as tf
 from dataclasses import dataclass, field
 
+tf.get_logger().setLevel('ERROR')
+
 @dataclass
 class Settings_nn():
     input_time_steps : int = 50
@@ -8,9 +10,9 @@ class Settings_nn():
     shift : int = 3
     first_layer_width : int = 6
     activation_function : str = 'tanh'
-    features : list = field(default_factory=lambda:['x','y','z'])
-    targets : list = field(default_factory=lambda:['z'])
-    plot_target : str = 'z'
+    features : list = field(default_factory=lambda:['acc1_x','acc1_y','acc1_z'])
+    targets : list = field(default_factory=lambda:['acc1_z'])
+    plot_target : str = 'acc1_z'
     verbose : int = 1    
     
 @dataclass
