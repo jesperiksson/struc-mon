@@ -52,6 +52,22 @@ class Data():
         self.df['cos_year'] = self.df['ts'].apply(
             lambda M : np.cos((M.day+M.month*days_per_month)*np.pi/365)
             )
+            
+    def add_temp(self):
+        temp_df = pd.read_sql_query(
+            sql = self.query_generator.generate_temp_query(),
+            con = self.connection.endpoint
+        )
+        increment = len(self.df)/len(temp_df)
+        temp_col = np.empty(shape=len(self.df))
+        temp_col[:] = np.nan
+        for i in range(len(temp_df)):
+            temp_col[int(i*increment)] = temp_df['temp'].iloc[i]
+        self.df['temp'] = temp_col
+        self.df.interpolate(
+            method = 'linear',
+            inplace = True)
+            
 
     def preprocess(self, method=None):
         if method == 'mean':    

@@ -22,8 +22,8 @@ class QueryGenerator():
         where_clause = f"{config.schema}.{config.table_names[self.sensors[0]]}.id < {self.settings.n_samples}"
         return where_clause
 
-    def generate_where(self):
-        where_clause = f"{config.schema}.{config.table_names[self.sensors[0]]}.ts BETWEEN \'{self.parse_date(self.start_date)}\' AND \'{self.parse_date(self.end_date)}\' "
+    def generate_where(self,table_name=config.table_names['acc1']):
+        where_clause = f"{config.schema}.{table_name}.ts BETWEEN \'{self.parse_date(self.start_date)}\' AND \'{self.parse_date(self.end_date)}\' "
         return where_clause
 
     def generate_and(self):
@@ -45,4 +45,31 @@ class QueryGenerator():
         query += f"WHERE {self.generate_where()}"
         query += self.generate_and()
         return query
+        
+    def generate_temp_query(self):
+        query = ''
+        query += f"SELECT {config.table_names['temp']}.{''.join(config.column_names[config.table_names['temp']])} AS temp "
+        query += f"FROM {config.schema}.{config.table_names['temp']} "
+        query += f"WHERE {self.generate_where(table_name = config.table_names['temp'])}"
+        return query
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 

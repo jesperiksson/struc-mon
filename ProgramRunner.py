@@ -29,7 +29,8 @@ class ProgramRunner():
             'eval' : 'EvalScheme',
             'plot_normalized' : 'PlotNormalizedScheme',
             'sep_train_eval' : 'SepTrainTestScheme',
-            'standard' : 'StandardScheme'
+            'standard' : 'StandardScheme',
+            'dev' : 'DevScheme'
         }
         sys.path.append(config.scheme_path)
         scheme_module = il.import_module(scheme_dict[args.mode[0]])

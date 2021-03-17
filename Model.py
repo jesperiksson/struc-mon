@@ -72,7 +72,10 @@ class StatModel(Model): # Purely statistical model to be used as baseline
     def __init__(self,settings):
         super().__init__(settings)
         
-    def             
+    def setup_model(self):
+        sys.path.append(config.preset_path)
+        module = il.import_module(self.settings.preset) # Import the specified model from file with same name
+        learned = None # TBI            
         
 
 class NeuralNet(Model): # Methods and features shared among all Keras Neural Nets
@@ -81,14 +84,8 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
 
     def setup_nn(self, plot_model=False):
         sys.path.append(config.preset_path)
-        if self.settings.use_preset == True:          
-            module = il.import_module(self.settings.preset) # Import the specified model from file with same name
-            learned = None # TBI
-        elif self.settings.use_preset == False: # To be implemented
-            module = il.import_module(self.settings.template) 
-            learned = None # TBI 
-        else: 
-            raise Exception('use_preset ambiguos') # should never happen           
+        module = il.import_module(self.settings.preset) # Import the specified model from file with same name
+        learned = None # TBI       
           
         # Record settings from the neural net module    
         self.settings_nn = module.Settings_nn()
@@ -188,7 +185,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             print(f"Loaded {self.nn}")
 
         
-class TimeSeriesNeuralNet(NeuralNet): # For RNNs, CNNs, etc.
+class TimeSeriesNeuralNet(NeuralNet): # For RNNs, CNNs, etc. Obsolete?
     def __init__(self,settings):
         super().__init__(settings)
      
