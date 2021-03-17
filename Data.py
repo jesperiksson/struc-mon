@@ -1,16 +1,22 @@
-# External packages
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import scipy.signal as signal
-import rainflow as rf
-
 # Standard packages
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import random
 import re
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+
+# External packages
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+#import scipy.signal as signal
+import tensorflow.signal as signal
+import rainflow as rf
+import seaborn as sns
+
+
 
 # Self made modules
 from Settings import Settings
@@ -30,6 +36,53 @@ class Data():
             parse_dates = config.time_stamp
         )
         print(self.df.columns)
+        
+    def add_trig(self):
+        days_per_month = 365/12
+               
+        self.df['sin_day'] = self.df['ts'].apply(
+            lambda m : np.sin(m.hour*np.pi/12)
+            )
+        self.df['cos_day'] = self.df['ts'].apply(
+            lambda m : np.cos(m.hour*np.pi/12)
+            )
+        self.df['sin_year'] = self.df['ts'].apply(
+            lambda M : np.sin((M.day+M.month*days_per_month)*np.pi/365)
+            )
+        self.df['cos_year'] = self.df['ts'].apply(
+            lambda M : np.cos((M.day+M.month*days_per_month)*np.pi/365)
+            )
+
+    def preprocess(self, method=None):
+        if method == 'mean':    
+            normalized_df=(self.df.drop(['ts'],axis=1)-self.df.drop(['ts'],axis=1).mean())/self.df.drop(['ts'],axis=1).std()
+            normalized_df['ts'] = self.df['ts']  
+            self.df = normalized_df
+        elif method == 'min-max':
+            normalized_df=(self.df.drop(['ts'],axis=1)-self.df.drop(['ts'],axis=1).min())/(self.df.drop(['ts'],axis=1).max()-self.df.drop(['ts'],axis=1).min())
+            normalized_df['ts'] = self.df['ts']
+            self.df = normalized_df
+        else: 
+            print('No preprocessing scheme specified')
+            
+    def plot_normalized(self):
+        #df_std = (self.df.drop(['ts'],axis=1) - self.df.drop(['ts'],axis=1).mean()) / self.df.drop(['ts'],axis=1).std() 
+        df_std = self.df.drop(['ts'],axis=1).melt(var_name='Column', value_name='Normalized')
+        plt.figure(figsize=(12, 6))
+        ax = sns.violinplot(x='Column', y='Normalized', data=df_std)
+        _ = ax.set_xticklabels(self.df.drop(['ts'],axis=1).keys(), rotation=90)
+        plt.show()
+        
+            
+    def important_frequencies(self,feature):
+        fft = signal.rfft(self.df[feature])
+        f_per_dataset = np.arange(0, len(fft))
+        n_samples = len(df[feature]) # TODO
+        
+    def meta_data(self): # __repr__()?
+        print(f"\nFeatures: {self.df.columns}\nNumber of samples: {len(self.df)}\nStart ts: {self.df['ts'].iloc[0]}\nEnd ts: {self.df['ts'].iloc[-1]}")
+        
+        
         
 
 @dataclass

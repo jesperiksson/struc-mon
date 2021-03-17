@@ -98,8 +98,8 @@ class WindowGenerator():
         """Get and cache an example batch of `inputs, labels` for plotting."""
         result = getattr(self, '_example', None)
         if result is None:
-            # No example batch was found, so get one from the `.train` dataset
-            result = next(iter(self.train))
+            # No example batch was found, so get one from the `.test` dataset
+            result = next(iter(self.test))
             # And cache it for next time
             self._example = result
         return result
