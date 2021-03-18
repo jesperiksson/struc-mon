@@ -5,10 +5,10 @@ from Data import Data
 
 
 class Scheme():
-    def __init__(self,args, settings):
+    def __init__(self,args, settings, data_split):
         self.args = args
         self.settings = settings
-    
+        self.data_split = data_split
 
     def execute_scheme(self):
         model = TimeSeriesNeuralNet(self.settings)

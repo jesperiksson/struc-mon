@@ -30,13 +30,6 @@ class Settings_eval():
 @dataclass   
 class Settings_test():
     batch_size : int = 20
-
-
-@dataclass    
-class DataSplit():
-    train : int = 0.6
-    validation : int = 0.2
-    test : int = 0.2
     
 def set_up_model(arch):
     n_features = len(arch.features)

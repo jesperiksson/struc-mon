@@ -57,7 +57,7 @@ def main():
         '--mode',
         action = 'store',
         nargs = 1,
-        default = 'standard',
+        default = ['standard'],
         type = str,
         help = 'What to perform. Currently implemented:\n train - Allocate all data to training set and train. Load if availabe.\n eval - allocate all data to test and evaluate. Load if available.\n train_and_eval - Split data according to data_split. Train and evaluate. \n plot_normalized - Load data, normalize it and display a violin plot.\n sep_train_eval - Load two separate data sets with different queries. '
         )

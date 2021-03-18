@@ -53,6 +53,17 @@ class QueryGenerator():
         query += f"WHERE {self.generate_where(table_name = config.table_names['temp'])}"
         return query
         
+    def fetch_latest_query(self,model): # Needs a model object to figure out how many tuples to request
+        query = ''
+        return query
+        
+    def generate_latest_query(self,steps=50): # Needs a model object to figure out how many tuples to request
+        query = ''
+        query += f" SELECT {self.generate_select()}"
+        query += f" FROM {config.schema}.{(', '+config.schema+'.').join([config.table_names[sensor] for sensor in self.sensors])} "
+        query += f" ORDER BY id DESC LIMIT {steps} "
+        return query
+        
         
         
         

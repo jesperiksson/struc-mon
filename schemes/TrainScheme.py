@@ -5,9 +5,10 @@ from Data import Data
 
 
 class Scheme():
-    def __init__(self,args, settings):
+    def __init__(self,args, settings, data_split):
         self.args = args
         self.settings = settings
+        self.data_split = data_split
     
 
     def execute_scheme(self):
@@ -22,10 +23,9 @@ class Scheme():
         data.make_df_postgres()
         data.preprocess(self.settings.normalization)
         data.add_trig()
-        df = data.df
-        model.setup_nn()
-        model.train_test_split(df)
-        model.make_timeseries_dataset()
+        data.train_test_split(self.data_split)
+        model.setup()
+        model.make_timeseries_dataset(data)
         if self.args.load: # Load a neural, either with name from settings or with the name the user provided if it provided
             model.load_nn()
             

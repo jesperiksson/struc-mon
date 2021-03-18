@@ -127,7 +127,6 @@ class WindowGenerator():
                             edgecolors='k', label='Labels', c='#2ca02c', s=64)
                 if model is not None:
                     predictions = model(inputs)
-                    print(self.label_indices, predictions[n, :, label_col_index])
                     plt.scatter(self.label_indices, predictions[n, :, label_col_index],
                               marker='X', edgecolors='k', label='Predictions',
                               c='#ff7f0e', s=64)

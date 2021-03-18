@@ -2,6 +2,7 @@ import importlib as il
 import sys
 import config
 #from Data import SeriesStack
+from Settings import DataSplit
 
 class ProgramRunner():
     def __init__(self,settings,args):
@@ -32,9 +33,10 @@ class ProgramRunner():
             'standard' : 'StandardScheme',
             'dev' : 'DevScheme'
         }
+        data_split = DataSplit()
         sys.path.append(config.scheme_path)
         scheme_module = il.import_module(scheme_dict[args.mode[0]])
-        scheme = scheme_module.Scheme(args, settings)
+        scheme = scheme_module.Scheme(args, settings, data_split)
         scheme.execute_scheme()
             
         if args.date is not None:
