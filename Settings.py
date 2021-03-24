@@ -1,15 +1,15 @@
 from dataclasses import dataclass, field
 @dataclass()
 class Settings:
-    name : str = 'test_classifier_par' # Used to identify saved model
-    preset : str = 'MLP_multi_step_output_par' # Must be the name of a module in /presets
+    name : str = 'test_bol_4' # Used to identify saved model
+    preset : str = 'MLP_multi_step_output_bol' # Must be the name of a module in /presets
     classifier : str = 'naive_classifier'
     sensors : list = field(default_factory=lambda:['acc1'])
     n_samples : int = 5000
-    start_date : str = '2020-10-27'
-    end_date : str = '2020-11-02'
+    start_date : str = '2020-11-03'
+    end_date : str = '2020-11-04'
     test_end_date : str = '2020-11-03'# For SepTrainTest
-    normalization : str = 'min-max' # mean or min-max
+    normalization : str = 'mean' # mean or min-max
     
 @dataclass    
 class DataSplit():

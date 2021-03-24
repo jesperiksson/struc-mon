@@ -2,6 +2,7 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import config
 class WindowGenerator():
     def __init__(
             self, 
@@ -107,7 +108,7 @@ class WindowGenerator():
     def plot(self, plot_col, model=None, max_subplots=3):
         try:
             inputs, labels = self.example
-            plt.figure(figsize=(12, 8))
+            plt.figure(figsize=config.figsize)
             plot_col_index = self.column_indices[plot_col]
             max_n = min(max_subplots, len(inputs))
             for n in range(max_n):

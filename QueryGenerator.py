@@ -64,6 +64,11 @@ class QueryGenerator():
         query += f" ORDER BY id DESC LIMIT {steps} "
         return query
         
+    def generate_metadata(self):
+        query = ''
+        query += f"SELECT ts "
+        query += f"FROM {config.schema}.{config.table_names[self.sensors[0]]} "
+        return query
         
         
         

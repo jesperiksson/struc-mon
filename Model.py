@@ -3,6 +3,7 @@ import time
 import importlib as il
 import sys
 import os
+import pickle
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 # External packages
@@ -86,9 +87,8 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
 
     def setup(self, plot_model=False):
         sys.path.append(config.preset_path)
-        module = il.import_module(self.settings.preset) # Import the specified model from file with same name
-        learned = None # TBI       
-          
+        module = il.import_module(self.settings.preset) # Import the specified model from file with same name 
+        
         # Record settings from the neural net module    
         self.settings_model = module.Settings_nn()
         self.settings_train = module.Settings_train()
@@ -109,7 +109,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
                 show_shapes = True,
                 show_layer_names = True,
                 dpi = 150)
-        return learned
+        self.loaded = False
         
     def set_up_classifier(self):
         sys.path.append(config.classifier_path)
@@ -127,6 +127,11 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             batch_size = self.settings_train.batch_size,
             verbose = self.settings_model.verbose)
         self.toc = time.time() - tic
+        if self.loaded:
+            for key in self.history.history.keys():
+                self.history.history[key].extend(self.earlier_history[key])
+        print(self.history.history)
+        
         #self.training_report = self.report_generator.generate_training_report(self)
 
     def evaluate(self): # Evaluate the neural net
@@ -135,7 +140,6 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             batch_size = self.settings_eval.batch_size,
             verbose = self.settings_model.verbose
         )
-        print(loss)
         
     def test(self): # Test the neural net
         prediction = self.nn.predict(
@@ -169,9 +173,8 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             )
         statistic, pvalue = self.classifier.classify(prediction)
         print(f"t-statistic: {statistic}\npvalue: {pvalue}\n")
-        
-                
-        
+        # Write a report 
+              
     def plot_example(self): # Plot an input-output example
         self.time_series.plot(
             plot_col = self.settings_model.plot_target,
@@ -186,8 +189,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         plt.xlabel('epoch')
         plt.ylabel('error') 
         plt.savefig(config.saved_path+self.settings.name+''.join(self.settings.sensors))
-        plt.show()
-        
+        plt.show()   
            
     def save_nn(self,overwrite=False):
         # Backup???
@@ -198,10 +200,11 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             include_optimizer = True,
             save_format = 'tf')
             
+        with open(path+'/history.json','wb') as f:
+            pickle.dump(self.history.history, f)
         #f = open(config.saved_path+self.settings.name+'/report.txt','a')
         #f.write(self.training_report)
         #f.close()
-            
             
     def load_nn(self):
         if self.settings.name not in os.listdir(config.saved_path):
@@ -213,6 +216,9 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
                 compile = True)
             self.nn = loaded_nn
             print(f"Loaded {self.nn}")
+
+        self.earlier_history = pickle.load(open(config.saved_path+self.settings.name+'/history.json','rb'))
+        self.loaded = True
 
         
 class TimeSeriesNeuralNet(NeuralNet): # For RNNs, CNNs, etc. Obsolete?

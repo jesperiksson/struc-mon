@@ -1,4 +1,5 @@
 import datetime
+import pandas as pd
 class ReportGenerator():
     def __init__(self,settings):
         self.settings = settings
@@ -13,3 +14,10 @@ class ReportGenerator():
         training_report += f"epochs: {model.settings_train.epochs}\n"
         training_report += f"##############\n"
         return training_report
+        
+    def generate_metadata_report(self,df):
+        training_report = f"##############\n"
+        training_report += f"{df.groupby(df.index.date).count()}"
+        training_report += f"##############\n"
+        return training_report
+        

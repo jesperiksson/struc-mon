@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 #import scipy.signal as signal
-import tensorflow.signal as signal
-import rainflow as rf
+#import tensorflow.signal as signal
+#import rainflow as rf
 import seaborn as sns
 
 
@@ -69,7 +69,7 @@ class Data():
             
 
     def preprocess(self, method=None):
-        if method == 'mean':    
+        if method == 'mean': # standardize
             normalized_df=(self.df.drop(['ts'],axis=1)-self.df.drop(['ts'],axis=1).mean())/self.df.drop(['ts'],axis=1).std()
             normalized_df['ts'] = self.df['ts']  
             self.df = normalized_df
@@ -107,13 +107,25 @@ class Data():
         print(self.test_df)
         
     def plot_data(self):
-        self.df.plot(
-            y = self.df.columns.drop(['ts']),
-            kind = 'line',
-            grid = True,
-            linewidth = 0.1
+        fig, axs = plt.subplots(len(self.df.columns.drop(['ts'])), figsize = config.figsize)
+        for i,col in enumerate(self.df.columns.drop(['ts'])):
+            self.df.plot(
+                y = col,
+                kind = 'line',
+                ax = axs[i],
+                grid = True,
+                linewidth = 0.1
         )
         plt.show()
+        
+    def generate_metadata_report(self,generator):
+        ts_df = pd.read_sql_query(
+            sql = self.query_generator.generate_metadata(),
+            con = self.connection.endpoint,
+            parse_dates = config.time_stamp,
+            index_col = config.time_stamp
+        )
+        print(generator.generate_metadata_report(ts_df))
         
         
 class NewData(Data):
