@@ -68,6 +68,11 @@ def main():
         type = str,
         help = 'Dates, from between which to read data. Rquired format is yyyy-mm-dd. \nThe order of them implies \n1: Start date\n2: End/middle date\n 3: End date (in case mode is separate train and eval)'
         )
+    parser.add_argument(
+        '--load_dataset',
+        action = 'store_true',
+        help = ''        
+    )
     args = parser.parse_args()
     ProgramRunner(settings,args)
             

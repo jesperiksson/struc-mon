@@ -42,7 +42,8 @@ class QueryGenerator():
         query = ''
         query += f"SELECT {self.generate_select()}"
         query += f"FROM {config.schema}.{(', '+config.schema+'.').join([config.table_names[sensor] for sensor in self.sensors])} "
-        query += f"WHERE {self.generate_where()}"
+        query += f"WHERE {self.generate_where(table_name=config.table_names[self.sensors[0]])} "
+        query += f"ORDER BY {config.schema}.{config.table_names[self.sensors[0]]}.ts ASC"
         query += self.generate_and()
         return query
         

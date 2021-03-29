@@ -40,21 +40,29 @@ class Model(): # Methods and features shared across all predictive models
             self.residual.numpy()[:,0,0],
             bins = 100)
         plt.title('Prediction errors')
-        plt.ylabel(f'Prediction error for {self.settings_model.plot_target}')
+        plt.ylabel(f'Prediction error for {self.settings_model.plot_targets}')
         plt.show()
         
     def make_timeseries_dataset(self, data, print_shape=False):
-        self.time_series = WindowGenerator(
-            input_width = self.settings_model.input_time_steps,
-            label_width = self.settings_model.target_time_steps,
-            shift = self.settings_model.shift,
-            train_df = data.train_df[self.settings_model.features],
-            val_df = data.val_df[self.settings_model.features],
-            test_df = data.test_df[self.settings_model.features],
-            label_columns = self.settings_model.targets,
-            train_batch_size = self.settings_train.batch_size,
-            eval_batch_size = self.settings_eval.batch_size,
-            test_batch_size = self.settings_test.batch_size)
+        time_seriess = []
+        for i in range(len(data.dfs)):      
+            time_seriess.append(WindowGenerator(
+                input_width = self.settings_model.input_time_steps,
+                label_width = self.settings_model.target_time_steps,
+                shift = self.settings_model.shift,
+                train_df = data.train_dfs[i][self.settings_model.features],
+                val_df = data.val_dfs[i][self.settings_model.features],
+                test_df = data.test_dfs[i][self.settings_model.features],
+                label_columns = self.settings_model.targets,
+                train_batch_size = self.settings_train.batch_size,
+                eval_batch_size = self.settings_eval.batch_size,
+                test_batch_size = self.settings_test.batch_size)
+                )
+        self.time_series = time_seriess[0]
+        for i in range(len(time_seriess)-1):
+            self.time_series.train.concatenate(time_seriess[i+1].train)
+            self.time_series.test.concatenate(time_seriess[i+1].test)
+            self.time_series.val.concatenate(time_seriess[i+1].val)
         try:
             if print_shape:
                 for example_inputs, example_labels in self.time_series.train.take(1):
@@ -64,6 +72,13 @@ class Model(): # Methods and features shared across all predictive models
             for example_inputs, example_labels in self.time_series.train.test(1):
                 print(f'Inputs shape (batch, time, features): {example_inputs.shape}')
                 print(f'Labels shape (batch, time, features): {example_labels.shape}')
+                
+    def save_dataset(self):
+        with open(f"{config.dataset_path}{self.settings.dataset_name}.json",'wb') as f:
+            pickle.dump(self.time_series, f)
+            
+    def load_dataset(self):
+        self.time_series = pickle.load(open(f"{config.dataset_path}{self.settings.dataset_name}.json",'rb'))
         
 class StatModel(Model): # Purely statistical model to be used as baseline
     def __init__(self,settings):
@@ -120,17 +135,28 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         for example_inputs, example_labels in self.time_series.train.take(1):
             print(f'Inputs shape (batch, time, features): {example_inputs.shape}')
             print(f'Labels shape (batch, time, features): {example_labels.shape}')
-        tic = time.time()  
+        tic = time.time()
+        callbacks = []
+        if self.settings_train.early_stopping:
+            callbacks.append(tf.keras.callbacks.EarlyStopping(
+                monitor = self.settings_train.early_stopping_monitor,
+                min_delta  = self.settings_train.early_stopping_min_delta,
+                patience = self.settings_train.early_stopping_patience,
+                verbose = self.settings_train.early_stopping_verbose,
+                mode = self.settings_train.early_stopping_mode
+            ))
         self.history = self.nn.fit(
             self.time_series.train,
             epochs = self.settings_train.epochs,
             batch_size = self.settings_train.batch_size,
+            validation_data = self.time_series.val,
+            callbacks = callbacks,
             verbose = self.settings_model.verbose)
         self.toc = time.time() - tic
         if self.loaded:
             for key in self.history.history.keys():
                 self.history.history[key].extend(self.earlier_history[key])
-        print(self.history.history)
+        self.nn.summary()
         
         #self.training_report = self.report_generator.generate_training_report(self)
 
@@ -177,7 +203,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
               
     def plot_example(self): # Plot an input-output example
         self.time_series.plot(
-            plot_col = self.settings_model.plot_target,
+            plot_cols = self.settings_model.plot_targets,
             model = self.nn)
         plt.show()        
             
@@ -194,6 +220,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
     def save_nn(self,overwrite=False):
         # Backup???
         path = config.saved_path+self.settings.name
+        print(self.nn)
         self.nn.save(
             filepath = path,
             overwrite = overwrite,

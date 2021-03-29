@@ -1,6 +1,7 @@
 from Model import TimeSeriesNeuralNet
 from SQLAConnection import SQLAConnection 
 from QueryGenerator import QueryGenerator
+from ReportGenerator import ReportGenerator
 from Data import Data
 
 
@@ -9,6 +10,7 @@ class Scheme():
         self.args = args
         self.settings = settings
         self.data_split = data_split
+    
 
     def execute_scheme(self):
         model = TimeSeriesNeuralNet(self.settings)
@@ -18,9 +20,10 @@ class Scheme():
             self.settings.start_date,
             self.settings.end_date
             )
+        report_generator = ReportGenerator(self.settings)
         data = Data(query_generator,connection)
         data.make_df_postgres()
-        data.plot_normalized()
+        data.find_discontinuities()
+        data.split_at_discontinuities()      
         data.preprocess(self.settings.normalization)
         data.plot_normalized()
-        data.meta_data()

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 import random
 import re
+import pickle
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
@@ -35,22 +36,42 @@ class Data():
             con = self.connection.endpoint,
             parse_dates = config.time_stamp
         )
+        self.discontinuities = None
+        
+    def find_discontinuities(self,tol = timedelta(hours=1)):     
+        self.discontinuities = [i for i in range(len(self.df['ts'][:-1])) if self.df['ts'].iloc[i+1]-self.df['ts'].iloc[i]>tol]
+        print(self.discontinuities)
+        
+    def split_at_discontinuities(self):
+        self.dfs = []
+        old = 0
+        if self.discontinuities == None:
+            self.dfs = [self.df]
+        else: 
+            for new in self.discontinuities:
+                self.dfs.append(self.df[old:new])
+                print(self.df['ts'].iloc[old],self.df['ts'].iloc[new])
+                old=new+1
+            self.dfs.append(self.df[old:-1])
+
+
         
     def add_trig(self):
-        days_per_month = 365/12
-               
-        self.df['sin_day'] = self.df['ts'].apply(
-            lambda m : np.sin(m.hour*np.pi/12)
-            )
-        self.df['cos_day'] = self.df['ts'].apply(
-            lambda m : np.cos(m.hour*np.pi/12)
-            )
-        self.df['sin_year'] = self.df['ts'].apply(
-            lambda M : np.sin((M.day+M.month*days_per_month)*np.pi/365)
-            )
-        self.df['cos_year'] = self.df['ts'].apply(
-            lambda M : np.cos((M.day+M.month*days_per_month)*np.pi/365)
-            )
+        for i in range(len(self.dfs)):
+            days_per_month = 365/12
+                   
+            self.dfs[i]['sin_day'] = self.df['ts'].apply(
+                lambda m : np.sin(m.hour*np.pi/12)
+                )
+            self.dfs[i]['cos_day'] = self.df['ts'].apply(
+                lambda m : np.cos(m.hour*np.pi/12)
+                )
+            self.dfs[i]['sin_year'] = self.df['ts'].apply(
+                lambda M : np.sin((M.day+M.month*days_per_month)*np.pi/365)
+                )
+            self.dfs[i]['cos_year'] = self.df['ts'].apply(
+                lambda M : np.cos((M.day+M.month*days_per_month)*np.pi/365)
+                )
             
     def add_temp(self):
         temp_df = pd.read_sql_query(
@@ -69,19 +90,19 @@ class Data():
             
 
     def preprocess(self, method=None):
-        if method == 'mean': # standardize
-            normalized_df=(self.df.drop(['ts'],axis=1)-self.df.drop(['ts'],axis=1).mean())/self.df.drop(['ts'],axis=1).std()
-            normalized_df['ts'] = self.df['ts']  
-            self.df = normalized_df
-        elif method == 'min-max':
-            normalized_df=(self.df.drop(['ts'],axis=1)-self.df.drop(['ts'],axis=1).min())/(self.df.drop(['ts'],axis=1).max()-self.df.drop(['ts'],axis=1).min())
-            normalized_df['ts'] = self.df['ts']
-            self.df = normalized_df
-        else: 
-            print('No preprocessing scheme specified')
+        for i in range(len(self.dfs)):
+            if method == 'mean': # standardize
+                normalized_df=(self.dfs[i].drop(['ts'],axis=1)-self.dfs[i].drop(['ts'],axis=1).mean())/self.dfs[i].drop(['ts'],axis=1).std()
+                normalized_df['ts'] = self.dfs[i]['ts']  
+                self.dfs[i] = normalized_df
+            elif method == 'min-max':
+                normalized_df=(self.dfs[i].drop(['ts'],axis=1)-self.dfs[i].drop(['ts'],axis=1).min())/(self.dfs[i].drop(['ts'],axis=1).max()-self.dfs[i].drop(['ts'],axis=1).min())
+                normalized_df['ts'] = self.dfs[i]['ts']
+                self.dfs[i] = normalized_df
+            else: 
+                print('No preprocessing scheme specified')
             
     def plot_normalized(self):
-        #df_std = (self.df.drop(['ts'],axis=1) - self.df.drop(['ts'],axis=1).mean()) / self.df.drop(['ts'],axis=1).std() 
         df_std = self.df.drop(['ts'],axis=1).melt(var_name='Column', value_name='Normalized')
         plt.figure(figsize=(12, 6))
         ax = sns.violinplot(x='Column', y='Normalized', data=df_std)
@@ -98,25 +119,31 @@ class Data():
         print(f"\nFeatures: {self.df.columns}\nNumber of samples: {len(self.df)}\nStart ts: {self.df['ts'].iloc[0]}\nEnd ts: {self.df['ts'].iloc[-1]}")
         
     def train_test_split(self,data_split): # makes a dataframe out of all the smaller dataframes    
-        n = len(self.df)
-        self.train_df = self.df[0:int(n*data_split.train)]
-        self.val_df = self.df[
-            int(n*data_split.train):int(n*data_split.validation) + int(n*data_split.train)
-            ]
-        self.test_df = self.df[-int(n*data_split.test):]
-        print(self.test_df)
+        self.train_dfs = []
+        self.val_dfs = []
+        self.test_dfs = []
+        for i in range(len(self.dfs)):       
+            n = len(self.dfs[i])
+            self.train_dfs.append(self.dfs[i][0:int(n*data_split.train)])
+            self.val_dfs.append(self.dfs[i][int(n*data_split.train):int(n*data_split.validation) + int(n*data_split.train)])
+            self.test_dfs.append(self.dfs[i][-int(n*data_split.test):])
         
     def plot_data(self):
-        fig, axs = plt.subplots(len(self.df.columns.drop(['ts'])), figsize = config.figsize)
-        for i,col in enumerate(self.df.columns.drop(['ts'])):
-            self.df.plot(
-                y = col,
-                kind = 'line',
-                ax = axs[i],
-                grid = True,
-                linewidth = 0.1
-        )
-        plt.show()
+        for df in self.dfs:
+            fig, axs = plt.subplots(len(df.columns.drop(['ts'])), figsize = config.figsize)
+            for i,col in enumerate(df.columns.drop(['ts'])):               
+                df.plot(
+                    #x = 'ts',
+                    y = col,
+                    kind = 'line',
+                    ax = axs[i],
+                    grid = True,
+                    linewidth = 0.1,
+                    #xticks = df['ts'][0:-1:1000],
+                    #sharex = True
+            )
+            print(df['ts'])
+            plt.show()
         
     def generate_metadata_report(self,generator):
         ts_df = pd.read_sql_query(
@@ -126,6 +153,29 @@ class Data():
             index_col = config.time_stamp
         )
         print(generator.generate_metadata_report(ts_df))
+        
+    def save_df(self,name):
+        with open(f"{config.dataframe_path}{name}_df.json",'wb') as f:
+            pickle.dump(self.df, f)
+            
+    def load_df(self,name):
+        self.df = pickle.load(
+            open(f"{config.dataframe_path}{name}_df.json",'rb')
+            )
+            
+    def save_dfs(self,name):
+        with open(f"{config.dataframes_path}{name}_dfs.json",'wb') as f:
+            pickle.dump(self.dfs, f)
+            
+    def load_dfs(self,name):
+        self.dfs = pickle.load(
+            open(f"{config.dataframes_path}{name}_dfs.json",'rb')
+            )
+            
+    def load_extend_dfs(self,name):
+        self.dfs.extend(pickle.load(
+            open(f"{config.dataframes_path}{name}_dfs.json",'rb')
+            ))
         
         
 class NewData(Data):

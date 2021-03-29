@@ -31,19 +31,26 @@ class ProgramRunner():
             'plot_normalized' : 'PlotNormalizedScheme',
             'sep_train_eval' : 'SepTrainTestScheme',
             'standard' : 'StandardScheme',
-            'dev' : 'DevScheme'
+            'dev' : 'DevScheme',
+            'record_dataset' : 'RecordDatasetScheme',
+            'record_dataframes' : 'RecordDataframesSchemes',
+            'plot' : 'PlotScheme'
         }
         data_split = DataSplit()
         sys.path.append(config.scheme_path)
         scheme_module = il.import_module(scheme_dict[args.mode[0]])
-        scheme = scheme_module.Scheme(args, settings, data_split)
-        scheme.execute_scheme()
-            
         if args.date is not None:
             settings.start_date = args.date[0]
             settings.end_date = args.date[1]
             if len(args.date) == 3:
                 settings.test_end_date = args.date[2]
+        scheme = scheme_module.Scheme(args, settings, data_split)
+        scheme.execute_scheme()
+            
+
+                
+                
+        
             
 
 
