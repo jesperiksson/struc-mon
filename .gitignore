@@ -1,0 +1,7 @@
+*config.py
+*legacy
+*dataframe
+*dataframes
+*.swp
+*.sh
+*.ipynb
