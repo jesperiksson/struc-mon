@@ -12,7 +12,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-#import scipy.signal as signal
+import scipy as sp
+from scipy import signal
+from statsmodels.tsa.seasonal import seasonal_decompose
+
 #import tensorflow.signal as signal
 #import rainflow as rf
 import seaborn as sns
@@ -37,10 +40,10 @@ class Data():
             parse_dates = config.time_stamp
         )
         self.discontinuities = None
+        self.dates = [self.query_generator.start_date]
         
     def find_discontinuities(self,tol = timedelta(hours=1)):     
         self.discontinuities = [i for i in range(len(self.df['ts'][:-1])) if self.df['ts'].iloc[i+1]-self.df['ts'].iloc[i]>tol]
-        print(self.discontinuities)
         
     def split_at_discontinuities(self):
         self.dfs = []
@@ -50,7 +53,6 @@ class Data():
         else: 
             for new in self.discontinuities:
                 self.dfs.append(self.df[old:new])
-                print(self.df['ts'].iloc[old],self.df['ts'].iloc[new])
                 old=new+1
             self.dfs.append(self.df[old:-1])
 
@@ -101,6 +103,25 @@ class Data():
                 self.dfs[i] = normalized_df
             else: 
                 print('No preprocessing scheme specified')
+                
+    def distort(self,loc=0,scale=1):
+        for i,df in enumerate(self.dfs):
+            if i%2==0:
+                ts = df['ts']
+                df_size = df.drop(['ts'],axis=1).shape
+                noise = pd.DataFrame(
+                    np.random.normal(loc=loc,scale=scale,size=df_size),
+                    columns = df.drop(['ts'],axis=1).columns,
+                    index = df.index
+                    )
+                distorted = df.drop(['ts'],axis=1).add(noise)
+                distorted['ts'] = ts
+                distorted['distorted']=1
+                self.dfs[i]=distorted
+            else:              
+                df['distorted']=0
+                self.dfs[i]=df
+            
             
     def plot_normalized(self):
         df_std = self.df.drop(['ts'],axis=1).melt(var_name='Column', value_name='Normalized')
@@ -110,10 +131,53 @@ class Data():
         plt.show()
         
             
-    def important_frequencies(self,feature):
-        fft = signal.rfft(self.df[feature])
-        f_per_dataset = np.arange(0, len(fft))
-        n_samples = len(df[feature]) # TODO
+    def fast_fourier_transform(self):
+        for i in range(len(self.dfs)):
+            ts = self.dfs[i]['ts']
+            print(self.dfs[i].drop(['ts'],axis=1),self.dfs[i].columns.drop(['ts']))
+            print(sp.fft.rfft(self.dfs[i].drop(['ts'],axis=1),axis=1,overwrite_x = True).shape)
+            self.dfs[i] = pd.DataFrame(
+                sp.fft.rfft(
+                    self.dfs[i].drop(['ts'],axis=1),
+                    axis=1,
+                    overwrite_x = True),
+                index=self.dfs[i].index,
+                columns=self.dfs[i].columns.drop(['ts'])
+                )
+            self.dfs[i]['ts'] = ts
+            
+    def butter(self):
+        for i in range(len(self.dfs)):
+            ts = self.dfs[i]['ts']
+            self.dfs[i] = pd.DataFrame(
+                sp.signal.butter(
+                    self.dfs[i].drop(['ts'],axis=1),
+                    axis = 1,
+                    overwrite_x = True),
+                index=self.dfs[i].index,
+                columns=self.dfs[i].columns.drop(['ts'])
+                )
+            self.dfs[i]['ts'] = ts
+            
+    def wawelet(self):
+        for i in range(len(self.dfs)):
+            ts = self.dfs[i]['ts']
+            self.dfs[i] = pd.DataFrame(
+                signal.cwt(
+                    data = self.dfs[i].drop(
+                        ['ts'],
+                        axis=1),
+                    wavelet = signal.ricker,
+                    widths = np.arange(1, 31)*len(ts)),
+                index=self.dfs[i].index,
+                columns=self.dfs[i].columns.drop(['ts'])
+                )
+            self.dfs[i]['ts'] = ts      
+            
+    def ssa(self): 
+        for i in range(len(self.dfs)): 
+        pass
+                
         
     def meta_data(self): # __repr__()?
         print(f"\nFeatures: {self.df.columns}\nNumber of samples: {len(self.df)}\nStart ts: {self.df['ts'].iloc[0]}\nEnd ts: {self.df['ts'].iloc[-1]}")
@@ -143,7 +207,17 @@ class Data():
                     #sharex = True
             )
             print(df['ts'])
+            #plt.show()
+            
+    def STL(self):
+        for df in self.dfs:
+            fig, axs = plt.subplots(len(df.columns.drop(['ts'])), figsize = config.figsize)
+            for i,col in enumerate(df.columns.drop(['ts'])):
+                result = seasonal_decompose(df[col], model='multiplicative')
+                result.plot(ax = axs[i])
             plt.show()
+                
+        
         
     def generate_metadata_report(self,generator):
         ts_df = pd.read_sql_query(
@@ -154,28 +228,30 @@ class Data():
         )
         print(generator.generate_metadata_report(ts_df))
         
-    def save_df(self,name):
-        with open(f"{config.dataframe_path}{name}_df.json",'wb') as f:
+    def save_df(self,date):
+        with open(f"{config.dataframe_path}{date}_df.json",'wb') as f:
             pickle.dump(self.df, f)
             
-    def load_df(self,name):
+    def load_df(self,date):
         self.df = pickle.load(
-            open(f"{config.dataframe_path}{name}_df.json",'rb')
+            open(f"{config.dataframe_path}{date}_df.json",'rb')
             )
             
-    def save_dfs(self,name):
-        with open(f"{config.dataframes_path}{name}_dfs.json",'wb') as f:
+    def save_dfs(self,date):
+        with open(f"{config.dataframes_path}{date}_dfs.json",'wb') as f:
             pickle.dump(self.dfs, f)
             
-    def load_dfs(self,name):
+    def load_dfs(self,date):
         self.dfs = pickle.load(
-            open(f"{config.dataframes_path}{name}_dfs.json",'rb')
+            open(f"{config.dataframes_path}{date}_dfs.json",'rb')
             )
+        self.dates = [date]
             
-    def load_extend_dfs(self,name):
+    def load_extend_dfs(self,date):
         self.dfs.extend(pickle.load(
-            open(f"{config.dataframes_path}{name}_dfs.json",'rb')
+            open(f"{config.dataframes_path}{date}_dfs.json",'rb')
             ))
+        self.dates.extend([date])
         
         
 class NewData(Data):
