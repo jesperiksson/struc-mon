@@ -2,4 +2,6 @@
 *legacy
 *dataframe
 *dataframes
-
+*.swp
+*.sh
+*.ipynb
