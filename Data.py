@@ -176,7 +176,7 @@ class Data():
             
     def ssa(self): 
         for i in range(len(self.dfs)): 
-        pass
+            ts = self.dfs[i]['ts']
                 
         
     def meta_data(self): # __repr__()?
