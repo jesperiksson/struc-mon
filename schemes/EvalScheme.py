@@ -1,7 +1,7 @@
 from Model import *
 from SQLAConnection import SQLAConnection 
 from QueryGenerator import QueryGenerator
-from Data import Data
+from Data import *
 
 
 class Scheme():
@@ -17,8 +17,7 @@ class Scheme():
         model = TimeSeriesPredictionNeuralNet(self.settings)
         # Importera modellinställningar
         model.setup()
-        # Läs in neuralnät
-        #model.load_nn()
+
         
         connection = SQLAConnection()
         query_generator = QueryGenerator(
@@ -33,6 +32,8 @@ class Scheme():
         data.preprocess(self.settings.normalization)
         data.train_test_split(self.data_split)      
         model.make_timeseries_dataset(data)
+        # Läs in neuralnät
+        model.load_nn()
         model.test()
 
         
