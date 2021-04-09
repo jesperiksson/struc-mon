@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 @dataclass()
 class Settings:
     #name : str = 'LSTM_32_6_4_24_x1-x2' # Used to identify saved model
-    preset : str = 'CNN_300_128' # Must be the name of a module in /presets
+    preset : str = 'MLP' # Must be the name of a module in /presets
     classifier : str = 'naive_classifier'
     sensors : list = field(default_factory=lambda:['acc1','acc2','incl','strain1'])
     n_samples : int = 5000

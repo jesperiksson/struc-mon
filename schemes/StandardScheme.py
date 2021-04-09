@@ -9,9 +9,31 @@ class Scheme():
         self.args = args
         self.settings = settings
         self.data_split = data_split
-    
+  
 
     def execute_scheme(self):
+        # Instansiera modell
+        model = TimeSeriesPredictionNeuralNet(self.settings)
+        # Importera modellinställningar
+        model.setup()
+        # Läs in neuralnät
+        model.load_nn()
+        
+        connection = SQLAConnection()
+        query_generator = QueryGenerator(
+            self.settings.sensors,
+            self.settings.start_date,
+            self.settings.end_date
+            )
+        # Instansiera data
+        data = NewData(query_generator,connection)
+        data.figure_out_length(model)
+        data.make_new_df_postgres()
+        data.preprocess(self.settings.normalization)
+        data.train_test_split(self.data_split)      
+        model.make_timeseries_dataset(data)
+        model.test()
+'''
         model = TimeSeriesPredictionNeuralNet(self.settings)
         model.setup()
         if self.args.load_dataset:
@@ -64,3 +86,4 @@ class Scheme():
         model.test()
         model.plot_outliers()
         model.plot_example()
+'''
