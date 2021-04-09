@@ -19,7 +19,7 @@ import scipy.stats as stats
 # Self made modules
 import config
 from WindowGenerator import *
-from WindowClassificationGenerator import *
+#from WindowClassificationGenerator import *
 from ReportGenerator import ReportGenerator
 
 tf.get_logger().setLevel('ERROR')
