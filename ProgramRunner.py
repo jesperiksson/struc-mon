@@ -35,7 +35,8 @@ class ProgramRunner():
             'record_dataset' : 'RecordDatasetScheme',
             'record_dataframes' : 'RecordDataframesSchemes',
             'plot' : 'PlotScheme',
-            'category' : 'CategoryScheme'
+            'category' : 'CategoryScheme',
+            'cont_eval' : 'ContinuosEvalScheme'
         }
         data_split = DataSplit()
         sys.path.append(config.scheme_path)

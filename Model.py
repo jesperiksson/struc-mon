@@ -273,7 +273,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         
     def get_name(self):
         s = self.settings_model
-        return f"{s.kind}_{s.input_time_steps}_{s.target_time_steps}_{s.shift}_nodes_{'_'.join(''.join([str(x) for x in s.layer_widths]))}_in_{'-'.join(s.features)}_out_{'-'.join(s.targets)}"
+        return f"{s.kind}_{s.input_time_steps}_{s.target_time_steps}_{s.shift}_nodes_{'_'.join([str(x) for x in s.layer_widths])}_in_{'-'.join(s.features)}_out_{'-'.join(s.targets)}"
 
         
 class TimeSeriesPredictionNeuralNet(NeuralNet):
