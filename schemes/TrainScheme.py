@@ -15,6 +15,7 @@ class Scheme():
 
         model = TimeSeriesPredictionNeuralNet(self.settings)
         model.setup()
+        model.compile_model()
 
         connection = SQLAConnection()
         query_generator = QueryGenerator(

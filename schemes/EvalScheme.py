@@ -17,6 +17,7 @@ class Scheme():
         model = TimeSeriesPredictionNeuralNet(self.settings)
         # Importera modellinställningar
         model.setup()
+        model.compile_model()
 
         
         connection = SQLAConnection()
@@ -29,37 +30,15 @@ class Scheme():
         data = NewData(query_generator,connection)
         data.figure_out_length(model)
         data.make_new_df_postgres()
-        data.preprocess(self.settings.normalization)
-        data.train_test_split(self.data_split)      
-        model.make_timeseries_dataset(data)
-        # Läs in neuralnät
-        model.load_nn()
-        model.test()
-
-        
-        '''
-        data.make_df_postgres()
         data.find_discontinuities()
         data.split_at_discontinuities()
         data.preprocess(self.settings.normalization)
-        #data.fast_fourier_transform()
-        #data.wawelet()
-        #data.STL()
-        data.add_trig()
-        #data.add_temp()
         data.train_test_split(self.data_split)      
         model.make_timeseries_dataset(data)
-        model.print_shape()
-        model.plot_example()
-        #model.save_dataset()           
-        if self.args.load: 
-            
-           
-        model.train()
-        model.plot_history()
-        model.evaluate()
-        model.save_nn(overwrite=True)
+        #print(data.dfs)
+        # Läs in neuralnät
+        model.load_nn()
         model.test()
         model.plot_outliers()
         model.plot_example()
-        '''
+        
