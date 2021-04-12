@@ -12,9 +12,15 @@ class Scheme():
   
 
     def execute_scheme(self):
+<<<<<<< HEAD
 
+=======
+        # Instansiera modell
+>>>>>>> docker-test
         model = TimeSeriesPredictionNeuralNet(self.settings)
+        # Importera modellinställningar
         model.setup()
+<<<<<<< HEAD
         model.compile_model()
         if self.args.load_dataset:
             model.load_dataset()
@@ -43,6 +49,40 @@ class Scheme():
             #model.save_dataset()           
         if self.args.load: 
             model.load_nn()
+=======
+        # Läs in neuralnät
+        #model.load_nn()
+        
+        connection = SQLAConnection()
+        query_generator = QueryGenerator(
+            self.settings.sensors,
+            self.settings.start_date,
+            self.settings.end_date
+            )
+        # Instansiera data
+        
+        data = Data(query_generator,connection)
+        '''
+        data.figure_out_length(model)
+        data.make_new_df_postgres()
+        data.preprocess(self.settings.normalization)
+        data.train_test_split(self.data_split)      
+        model.make_timeseries_dataset(data)
+        model.test()
+
+        
+        '''
+        data.make_df_postgres()
+        data.find_discontinuities()
+        data.split_at_discontinuities()
+        data.preprocess(self.settings.normalization)
+        data.add_trig()
+        data.train_test_split(self.data_split)      
+        model.make_timeseries_dataset(data)
+        model.print_shape()
+        model.plot_example()
+            
+>>>>>>> docker-test
            
         model.train()
         model.plot_history()

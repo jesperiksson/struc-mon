@@ -259,7 +259,8 @@ class NewData(Data):
         super().__init__(query_generator,connection)
         
     def figure_out_length(self,model): # The amount of tuples needed for exactly one batch of data
-        self.steps = model.time_series.total_window_size * model.settings_test.batch_size +1
+        #self.steps = model.time_series.total_window_size * model.settings_test.batch_size +1
+        self.steps = (model.settings_model.input_time_steps * model.settings_model.shift) * model.settings_test.batch_size +1
         
     def make_new_df_postgres(self):
         self.df = pd.read_sql_query(
@@ -267,5 +268,22 @@ class NewData(Data):
             con = self.connection.endpoint,
             parse_dates = config.time_stamp
         )
+        
+        self.discontinuities = None
+        self.dates = [(datetime.today() + timedelta(days=1)).strftime(config.dateformat)]
+        
+    def find_discontinuities(self,tol = timedelta(hours=1)):     
+        self.discontinuities = [i for i in range(len(self.df['ts'][:-1])) if self.df['ts'].iloc[i+1]-self.df['ts'].iloc[i]>tol]
+        
+    def split_at_discontinuities(self):
+        self.dfs = []
+        old = 0
+        if self.discontinuities == None:
+            self.dfs = [self.df]
+        else: 
+            for new in self.discontinuities:
+                self.dfs.append(self.df[old:new])
+                old=new+1
+            self.dfs.append(self.df[old:-1])
 
 

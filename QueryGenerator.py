@@ -9,13 +9,15 @@ class QueryGenerator():
         self.end_date = end_date
         
         
-    def generate_select(self):
+    def generate_select(self,include_id=False):
         select_command = ''
         for sensor in self.sensors:
             table = config.table_names[sensor]
             for column in config.column_names[table]:
                 select_command+=table+'.'+column+' AS '+sensor+'_'+column+' ,' 
         select_command += f"{config.table_names[self.sensors[0]]}.ts AS ts "
+        if include_id:
+            select_command += f",{config.table_names[self.sensors[0]]}.id AS id "
         return select_command
 
     def generate_where_id(self):
@@ -26,11 +28,14 @@ class QueryGenerator():
         where_clause = f"{config.schema}.{table_name}.ts BETWEEN \'{self.parse_date(self.start_date)}\' AND \'{self.parse_date(self.end_date)}\' "
         return where_clause
 
-    def generate_and(self):
+    def generate_where_dates_equal(self):
         and_clause = ''
         if len(self.sensors)>1:
             for i in range(len(self.sensors)-1):
-                and_clause += f"AND {config.schema}.{config.table_names[self.sensors[0]]}.ts = {config.schema}.{config.table_names[self.sensors[i+1]]}.ts "
+                if i > 0:
+                    and_clause += " AND "
+                and_clause += f" {config.schema}.{config.table_names[self.sensors[0]]}.ts = {config.schema}.{config.table_names[self.sensors[i+1]]}.ts "
+                
                 # ts ensures integrity in data
         return and_clause
 
@@ -43,7 +48,7 @@ class QueryGenerator():
         query += f"SELECT {self.generate_select()}"
         query += f"FROM {config.schema}.{(', '+config.schema+'.').join([config.table_names[sensor] for sensor in self.sensors])} "
         query += f"WHERE {self.generate_where(table_name=config.table_names[self.sensors[0]])} "
-        query += self.generate_and()
+        query += f" AND self.generate_where_dates_equal() "
         query += f"ORDER BY {config.schema}.{config.table_names[self.sensors[0]]}.ts ASC"
         return query
         
@@ -54,14 +59,12 @@ class QueryGenerator():
         query += f"WHERE {self.generate_where(table_name = config.table_names['temp'])}"
         return query
         
-    def fetch_latest_query(self,model): # Needs a model object to figure out how many tuples to request
-        query = ''
-        return query
-        
     def generate_latest_query(self,steps=50): # Needs a model object to figure out how many tuples to request
         query = ''
-        query += f" SELECT {self.generate_select()}"
+        query += f" SELECT {self.generate_select(include_id=True)}"
         query += f" FROM {config.schema}.{(', '+config.schema+'.').join([config.table_names[sensor] for sensor in self.sensors])} "
+        #query += f" WHERE {self.generate_where(table_name=config.table_names[self.sensors[0]])} "
+        query += f" WHERE {self.generate_where_dates_equal()}"
         query += f" ORDER BY id DESC LIMIT {steps} "
         return query
         

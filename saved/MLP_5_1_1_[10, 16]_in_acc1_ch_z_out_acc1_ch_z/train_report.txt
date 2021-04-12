@@ -5,7 +5,11 @@ batch size: 32
 epochs: 40
 ##############
 ##############
+<<<<<<< HEAD
 2021-04-09 13:14:58
+=======
+2021-04-09 12:32:25
+>>>>>>> docker-test
 Train dataset dates: ['2020-11-01']
 batch size: 32
 epochs: 40
