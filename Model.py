@@ -118,7 +118,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         self.time_seriess = time_seriess
         self.dates = data.dates
 
-    def setup(self, plot_model=False):
+    def setup(self):
         sys.path.append(config.preset_path)
         module = il.import_module(self.settings.preset) # Import the specified model from file with same name 
         
@@ -131,18 +131,22 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         # learning rate decay
         # learning algortihm
         # other stuff
+        
+    def compile_model(self):
         self.nn.compile( # compile the net
             loss = self.settings_train.loss,
             optimizer = self.settings_train.optimizer,
-            metrics = self.settings_train.metrics)      
-        if plot_model:
+            metrics = self.settings_train.metrics)
+        self.loaded = False   
+               
+    def plot_model(self):
             tf.keras.utils.plot_model(
                 self.nn, 
                 config.saved_path+self.settings.name+'/model_plot.jpeg',
                 show_shapes = True,
                 show_layer_names = True,
                 dpi = 150)
-        self.loaded = False
+            
         
     def set_up_classifier(self):
         sys.path.append(config.classifier_path)
@@ -258,6 +262,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
             print(f'No saved model named {name}')
             #raise Exception('No module to load')
         else:
+            print(config.saved_path+name,os.listdir(config.saved_path))
             loaded_nn = tf.keras.models.load_model(
                 filepath = config.saved_path+name,
                 compile = True)
@@ -269,7 +274,7 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         
     def get_name(self):
         s = self.settings_model
-        return f"{s.kind}_{s.input_time_steps}_{s.target_time_steps}_{s.shift}_{s.layer_widths}_in_{'-'.join(s.features)}_out_{'-'.join(s.targets)}"
+        return f"{s.kind}_{s.input_time_steps}_{s.target_time_steps}_{s.shift}_nodes_{'_'.join([str(x) for x in s.layer_widths])}_in_{'-'.join(s.features)}_out_{'-'.join(s.targets)}"
 
         
 class TimeSeriesPredictionNeuralNet(NeuralNet):

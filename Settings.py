@@ -6,8 +6,8 @@ class Settings:
     classifier : str = 'naive_classifier'
     sensors : list = field(default_factory=lambda:['acc1','acc2','incl','strain1'])
     n_samples : int = 5000
-    start_date : str = '2020-11-01'
-    end_date : str = '2020-11-02'
+    start_date : str = '2020-11-02'
+    end_date : str = '2020-11-03'
     test_end_date : str = '2020-11-03'# For SepTrainTest
     normalization : str = 'min-max' # mean or min-max
     dataset_name : str = '03-01_03-05_32_6_4_test'

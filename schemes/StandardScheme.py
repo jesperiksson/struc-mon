@@ -15,6 +15,7 @@ class Scheme():
 
         model = TimeSeriesPredictionNeuralNet(self.settings)
         model.setup()
+        model.compile_model()
         if self.args.load_dataset:
             model.load_dataset()
         else:
@@ -26,20 +27,7 @@ class Scheme():
                 )
             data = Data(query_generator,connection)
             if self.args.load_dataframe:
-                data.load_dfs(date='2020-11-01')
-                #data.load_extend_dfs(date='2020-11-02')
-                #data.load_extend_dfs(date='2020-11-03')
-                #data.load_extend_dfs(date='2020-11-04')
-                #data.load_extend_dfs(date='2020-11-08')
-                #data.load_extend_dfs(date='2020-11-12')
-                data.load_extend_dfs(date='2020-11-16')
-                #data.load_extend_dfs(date='2020-11-20')
-                data.load_extend_dfs(date='2020-11-24')
-                #data.load_extend_dfs(date='2020-11-28')
-                data.load_extend_dfs(date='2020-12-02')  
-                data.load_extend_dfs(date='2020-12-18')
-                data.load_extend_dfs(date='2020-12-30')       
-                data.load_extend_dfs(date='2020-12-08')      
+                data.load_dfs(date='2020-11-01')  
             else:
                 data.make_df_postgres()
                 data.find_discontinuities()
@@ -52,8 +40,6 @@ class Scheme():
                 #data.add_temp()
             data.train_test_split(self.data_split)      
             model.make_timeseries_dataset(data)
-            model.print_shape()
-            model.plot_example()
             #model.save_dataset()           
         if self.args.load: 
             model.load_nn()
