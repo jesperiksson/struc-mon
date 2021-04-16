@@ -32,8 +32,7 @@ class QueryGenerator():
         and_clause = ''
         if len(self.sensors)>1:
             for i in range(len(self.sensors)-1):
-                if i > 0:
-                    and_clause += " AND "
+                and_clause += " AND "
                 and_clause += f" {config.schema}.{config.table_names[self.sensors[0]]}.ts = {config.schema}.{config.table_names[self.sensors[i+1]]}.ts "
                 
                 # ts ensures integrity in data
@@ -48,7 +47,7 @@ class QueryGenerator():
         query += f"SELECT {self.generate_select()}"
         query += f"FROM {config.schema}.{(', '+config.schema+'.').join([config.table_names[sensor] for sensor in self.sensors])} "
         query += f"WHERE {self.generate_where(table_name=config.table_names[self.sensors[0]])} "
-        query += f" AND self.generate_where_dates_equal() "
+        query += f"{self.generate_where_dates_equal()} "
         query += f"ORDER BY {config.schema}.{config.table_names[self.sensors[0]]}.ts ASC"
         return query
         

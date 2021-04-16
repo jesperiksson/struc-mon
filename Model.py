@@ -116,7 +116,11 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
                 )
             
         self.time_seriess = time_seriess
-        self.dates = data.dates
+        try:
+            self.dates = data.dates
+        except AttributeError:
+            self.dates = 'missing'
+            
 
     def setup(self):
         sys.path.append(config.preset_path)
@@ -140,12 +144,12 @@ class NeuralNet(Model): # Methods and features shared among all Keras Neural Net
         self.loaded = False   
                
     def plot_model(self):
-            tf.keras.utils.plot_model(
-                self.nn, 
-                config.saved_path+self.settings.name+'/model_plot.jpeg',
-                show_shapes = True,
-                show_layer_names = True,
-                dpi = 150)
+        tf.keras.utils.plot_model(
+            self.nn, 
+            config.saved_path+self.settings.name+'/model_plot.jpeg',
+            show_shapes = True,
+            show_layer_names = True,
+            dpi = 150)
             
         
     def set_up_classifier(self):

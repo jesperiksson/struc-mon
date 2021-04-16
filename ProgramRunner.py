@@ -33,7 +33,7 @@ class ProgramRunner():
             'standard' : 'StandardScheme',
             'dev' : 'DevScheme',
             'record_dataset' : 'RecordDatasetScheme',
-            'record_dataframes' : 'RecordDataframesSchemes',
+            'record_dataframes' : 'RecordDataframesScheme',
             'plot' : 'PlotScheme',
             'category' : 'CategoryScheme',
             'cont_eval' : 'ContinuosEvalScheme'

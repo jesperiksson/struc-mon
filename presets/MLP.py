@@ -4,14 +4,14 @@ from dataclasses import dataclass, field
 @dataclass
 class Settings_nn():
     kind : str = 'MLP'
-    input_time_steps : int = 5
-    target_time_steps : int = 1
-    shift : int = 1
+    input_time_steps : int = 10
+    target_time_steps : int = 2
+    shift : int = 2
     n_layers : int = 2
-    layer_widths : list = field(default_factory=lambda:[10]) # Same amount as n_layers
-    features : list = field(default_factory=lambda:['acc1_ch_z'])
-    targets : list = field(default_factory=lambda:['acc1_ch_z'])
-    plot_targets : list = field(default_factory=lambda:['acc1_ch_z'])
+    layer_widths : list = field(default_factory=lambda:[12]) # Same amount as n_layers
+    features : list = field(default_factory=lambda:['max'])
+    targets : list = field(default_factory=lambda:['max'])
+    plot_targets : list = field(default_factory=lambda:['max'])
     verbose : int = 1    
     
 @dataclass
