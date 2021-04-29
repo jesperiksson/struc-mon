@@ -12,11 +12,13 @@ class Settings:
     test_end_date : str = '2020-11-03'# For SepTrainTest
     normalization : str = 'mean' # mean or min-max
     dataset_name : str = '03-01_03-05_32_6_4_test'
+
     
 @dataclass    
 class DataSplit():
     train : int = 0.7
     validation : int = 0.15
     test : int = 0.15
+    
 
 

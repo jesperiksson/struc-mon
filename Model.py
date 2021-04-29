@@ -22,6 +22,7 @@ from WindowGenerator import *
 #from WindowClassificationGenerator import *
 from ReportGenerator import ReportGenerator
 
+
 tf.get_logger().setLevel('ERROR')
 
 class Model(): # Methods and features shared across all predictive models 
