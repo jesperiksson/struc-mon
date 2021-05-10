@@ -5,19 +5,26 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import config
-class PCAAnomalies():
-    def __init__(self,anomaly_dict, n_components = 0.99):
+
+import pickle
+
+from AnomalyModel import AnomalyModel
+
+class PCAAnomalies(AnomalyModel):
+    def __init__(self,anomaly_dict, settings, n_components = 0.99):
+        super().__init__(anomaly_dict, settings)
         self.feature_labels = next(iter(anomaly_dict.values())).get_feature_labels()# list?
-        self.X = np.transpose(np.array([x.get_feature_vector() for x in list(anomaly_dict.values())]))
-        norm = normalize(self.X, norm = 'max', axis = 1, copy = False, return_norm = True)
         self.pca = PCA(
             n_components = n_components,
             svd_solver = 'full')
         self.end_indices = np.array([[int(x.end_index) for x in list(anomaly_dict.values())]])
         self.df_numbers = np.array([[int(x.df_number) for x in list(anomaly_dict.values())]])
+        self.irl_labels = np.array([[int(x.irl_label) for x in list(anomaly_dict.values())]])
+        print(self.irl_labels)
         self.df = pd.DataFrame(
-            np.append(self.X, np.append(self.end_indices,self.df_numbers,axis=0),axis=0).transpose(),
-            columns=self.feature_labels+['end index','df_number'])
+            np.append(self.X, np.append(self.end_indices,np.append(self.df_numbers,self.irl_labels,axis=0),axis=0),axis=0).transpose(),
+            columns=self.feature_labels+['end index','df_number','irl_label'])
+        self.feature = anomaly_dict[0].feature # Only works when there is only one feature
         
         
     def fit_PCA(self):
@@ -27,12 +34,12 @@ class PCAAnomalies():
         print(f"Singular values: {self.pca.singular_values_}")
         
     def save_pca(self,name):
-        with open(self.get_pca_name,'wb') as f:
+        with open(self.get_pca_name(name),'wb') as f:
             pickle.dump(self.pca, f) 
             
     def load_pca(self,name):
         self.df = pickle.load(
-            open(self.get_pca_name,'rb')
+            open(self.get_pca_name(name),'rb')
             )   
     
     def get_pca_name(self,name):
@@ -42,7 +49,7 @@ class PCAAnomalies():
         self.cov = self.pca.get_covariance()
         print(self.cov)
         
-    def plot_components(self,features = ['Duration','rms','frequency']):
+    def plot_components(self,features):
         fig, axs = plt.subplots(len(features), figsize = config.figsize)
         for i, feature in enumerate(features):
             cmap_feature = self.df[feature]
@@ -59,6 +66,7 @@ class PCAAnomalies():
             cbar = fig.colorbar(sc,ax=axs[i])
             cbar.set_label(config.anomaly_units[feature])
         fig.tight_layout() 
+        plt.suptitle(f"{self.feature}")
         plt.show()
         
     def plot_components_3d(self):
@@ -66,6 +74,10 @@ class PCAAnomalies():
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
         cmap_feature = self.df[feature]
+        try:
+            cbar_label = config.anomaly_units[feature]
+        except KeyError:
+            cbar_label = ''
         sc = ax.scatter(
             self.pca.components_[0,:],
             self.pca.components_[1,:],
@@ -77,6 +89,7 @@ class PCAAnomalies():
         ax.set_zlabel('Third principal axis')
         cbar = fig.colorbar(sc,ax=ax)
         cbar.set_label(config.anomaly_units[feature])
+        plt.suptitle(f"{self.feature}")
         plt.show()
         
     def plot_components_log(self):
@@ -92,11 +105,20 @@ class PCAAnomalies():
         plt.colorbar(sc)
         plt.show()
         
-    def plot_hist(self):
-        plt.hist(
-            #self.pca.components_[0,:],
-            self.df['Duration'],
-            bins = 50)
+    def plot_hist_pca(self):
+        colors = ['tab:blue','tab:red','tab:green']
+        for i, color in enumerate(colors):
+            j = (self.df['labels'] == i).to_numpy() 
+            plt.hist(
+                self.pca.components_[0,:][j],
+                bins = 50,
+                color = color,
+                alpha = 0.5,
+                edgecolor = 'k',
+                stacked = True,
+                label = f"Category {i}")
+        plt.title(f"PCA component 0 categories according to Kmeans")
+        plt.legend()
         plt.show()
         
     def scree_plot(self):
@@ -114,6 +136,7 @@ class PCAAnomalies():
         axs[0].set_ylabel('Explained variance ratio')
         axs[0].set_title('Explained variance per PC')
         axs[0].legend()
+        axs[0].grid(True)
         axs[1].plot(
             np.arange(1,len(self.pca.singular_values_)+1),
             self.pca.singular_values_,
@@ -126,7 +149,9 @@ class PCAAnomalies():
         axs[1].set_ylabel('Eigenvalues')
         axs[1].set_title('Eigenvalues per PC')
         axs[1].legend()
-        fig.tight_layout()
+        axs[1].grid(True)
+        plt.suptitle(f"{self.feature}")
+        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.show()
                 
     def get_argmax(self,col='Duration'):
@@ -143,27 +168,40 @@ class PCAAnomalies():
         cmap = mpl.colors.LinearSegmentedColormap.from_list('Custom cmap', cmaplist, cmap.N)
         bounds = np.linspace(0, n_categories, n_categories+1)
         norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-        sc = axs[0].scatter(
-            self.pca.components_[0,:],
-            self.pca.components_[1,:],
-            c = self.df['labels'],
-            s = 10,
-            cmap = cmap,
-            norm = norm)
+        
+        markers = ['o','o']
+        linewidths = [0,2]
+        for k,m in enumerate(markers):
+            i = (self.df['irl_label'] == k).to_numpy()   
+            axs[0].scatter(
+                self.pca.components_[0,i],
+                self.pca.components_[1,i],
+                c = self.df['labels'][i],
+                s = 10+10*k,
+                marker = m,
+                cmap = cmap,
+                norm = norm,
+                linewidths = linewidths[k],
+                edgecolors = 'k')
+            #axs[i].set_title(feature)
+            axs[1].scatter(
+                self.pca.components_[0,i],
+                self.pca.components_[2,i],
+                c = self.df['labels'][i],
+                s = 10+10*k,
+                marker = m,
+                cmap = cmap,
+                norm = norm,
+                linewidths = linewidths[k],
+                edgecolors = 'k')
+            
         axs[0].set_xlabel('First principal axis')
         axs[0].set_ylabel('Second principal axis')
-        #axs[i].set_title(feature)
-        axs[1].scatter(
-            self.pca.components_[0,:],
-            self.pca.components_[2,:],
-            c = self.df['labels'],
-            s = 10,
-            cmap = cmap,
-            norm = norm)
         axs[1].set_xlabel('First principal axis')
         axs[1].set_ylabel('Third principal axis')
-        cbar = fig.colorbar(sc,ax=axs[1])
-        fig.tight_layout() 
+        cbar = fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap),ax=axs[1])
+        plt.suptitle(f"{self.feature}")
+        fig.tight_layout(rect=[0, 0.03, 1, 0.95]) 
         plt.show()
         
         
@@ -196,7 +234,7 @@ class KPCAAnomalies(PCAAnomalies):
             axs[i].set_title(feature)
             cbar = fig.colorbar(sc,ax=axs[i])
             cbar.set_label(config.anomaly_units[feature])
-        fig.tight_layout() 
+        fig.tight_layout(rect=[0, 0.03, 1, 0.95]) 
         plt.show()
 
                

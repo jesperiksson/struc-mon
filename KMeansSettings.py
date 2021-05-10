@@ -6,5 +6,5 @@ class KMeansSettings():
     n_init : int = 5
     max_iter : int = 300
     tol : float = 1e-4    
-    verbose : int = 1
+    verbose : int = 0
 

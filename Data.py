@@ -68,50 +68,7 @@ class Data(ABC):
         ax = sns.violinplot(x='Column', y='Normalized', data=df_std)
         _ = ax.set_xticklabels(self.df.drop(['ts'],axis=1).keys(), rotation=90)
         plt.show()
-        
-            
-    def fast_fourier_transform(self):
-        for i in range(len(self.dfs)):
-            ts = self.dfs[i]['ts']
-            print(self.dfs[i].drop(['ts'],axis=1),self.dfs[i].columns.drop(['ts']))
-            print(sp.fft.rfft(self.dfs[i].drop(['ts'],axis=1),axis=1,overwrite_x = True).shape)
-            self.dfs[i] = pd.DataFrame(
-                sp.fft.rfft(
-                    self.dfs[i].drop(['ts'],axis=1),
-                    axis=1,
-                    overwrite_x = True),
-                index=self.dfs[i].index,
-                columns=self.dfs[i].columns.drop(['ts'])
-                )
-            self.dfs[i]['ts'] = ts
-            
-    def butter(self):
-        for i in range(len(self.dfs)):
-            ts = self.dfs[i]['ts']
-            self.dfs[i] = pd.DataFrame(
-                sp.signal.butter(
-                    self.dfs[i].drop(['ts'],axis=1),
-                    axis = 1,
-                    overwrite_x = True),
-                index=self.dfs[i].index,
-                columns=self.dfs[i].columns.drop(['ts'])
-                )
-            self.dfs[i]['ts'] = ts
-            
-    def wawelet(self):
-        for i in range(len(self.dfs)):
-            ts = self.dfs[i]['ts']
-            self.dfs[i] = pd.DataFrame(
-                signal.cwt(
-                    data = self.dfs[i].drop(
-                        ['ts'],
-                        axis=1),
-                    wavelet = signal.ricker,
-                    widths = np.arange(1, 31)*len(ts)),
-                index=self.dfs[i].index,
-                columns=self.dfs[i].columns.drop(['ts'])
-                )
-            self.dfs[i]['ts'] = ts                  
+                         
         
     def meta_data(self): # __repr__()?
         print(f"\nFeatures: {self.df.columns}\nNumber of samples: {len(self.df)}\nStart ts: {self.df['ts'].iloc[0]}\nEnd ts: {self.df['ts'].iloc[-1]}")
@@ -167,24 +124,18 @@ class Data(ABC):
             pickle.dump(self.df, f)
             
     def load_df(self,date):
-        self.df = pickle.load(
-            open(f"{config.dataframe_path}_{date}_df.json",'rb')
-            )
+        self.df = pickle.load(open(f"{config.dataframe_path}_{date}_df.json",'rb'))
             
     def save_dfs(self,name):
         with open(self.get_dfs_name(name),'wb') as f:
             pickle.dump(self.dfs, f)
             
     def load_dfs(self,date):
-        self.dfs = pickle.load(
-            open(self.get_dfs_name(date),'rb')
-            )
+        self.dfs = pickle.load(open(self.get_dfs_name(date),'rb'))
         self.dates = [date]
             
     def load_extend_dfs(self,date):
-        self.dfs.extend(pickle.load(
-            open(self.get_dfs_name(date),'rb')
-            ))
+        self.dfs.extend(pickle.load(open(self.get_dfs_name(date),'rb')))
         self.dates.extend([date])
         
     def get_dfs_name(self,name):

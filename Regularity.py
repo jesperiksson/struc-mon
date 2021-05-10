@@ -4,11 +4,9 @@ import config
 
 from SeriesObject import SeriesObject
 
-class Anomaly(SeriesObject):
+class Regularity(SeriesObject):
     def __init__(self,r):
         super().__init__(r)
         
     def __repr__(self):
-        return f"\nanomaly duration: {self.duration/config.frequency:.3f}, anomaly average: {self.abs_mu:.3f}"
-        
-
+        return f"\nregularity duration: {self.duration/config.frequency:.3f}, regularity average: {self.abs_mu:.3f}"
