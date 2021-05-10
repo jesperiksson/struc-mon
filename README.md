@@ -11,7 +11,7 @@
   Rainflow - For creating rainflow analysis of stress \
   SciPy - For signal analysis \
   sklearn - For normalization \
-  Tensorflow 2.3 - For machine learning \ 
+  Tensorflow 2.x - For machine learning \ 
   Otherwise they can be installed using pip: \
   `pip install pip`\
   Matplotlib: https://pypi.org/project/matplotlib/ \
@@ -23,22 +23,24 @@
   Tensorflow: https://www.tensorflow.org/install/pip \
 4. Open the file in the repo named `config.py` and provide the path to the folder where the measurement files are stored in the variable `file_path`, e.g. `file_path = 'home/user/measurements'` 
 
-# Editing models, chosing data, etc.
-The code modules containing the neural nets are located in the folder `presets`. In order to set hyperparameters: pick a template file, make a copy of it and set the wanted hyperparameters and settings. In order to chose the wanted: either set the `preset` option to the name of the file or run the code with the appropriate flags (see next step)
+# Data.py 
+Superclass for objects containing data
+# AggregatedData.py
+Subclass containing methods for reading and storing data using OGC Standard: http://docs.opengeospatial.org/is/15-078r6/15-078r6.html
+# PostgresData.py 
+Subclass containing methods for reading and storing data from a PostgreSQL server. Queries are generated with a QueryGenerator object. Also contain a further subclass for anomalies. 
 
-# Initializing, training and evaluating
+# Anomaly.py
+Anomaly objects
 
-Run the main file in a terminal: `python3 main.py`. There are a number of additional arguments that can be set. Run the program with the help flag in order to view these: `python3 main.py -h`. Among others, the preset and weather to train a new net or load an existing one can be set. 
+# AnomalySettings.py 
+Settings for anomaly objects
 
-# Inspecting raw data
+# Model.py 
+Superclass for model objects. Also contains subclasses TimeSeriesPredictionNeuralNet and TimeSeriesClassificationNeuralNet
 
-The file `inspect_data.py` displays raw data when ran. As with the main file, type `python3 inspect_data.py -h` to list additional arguments, which include options to chose which sensor to look at, what interval, etc. For strain it is possible to view the rainflow diagram. 
-
-# Saving and loading
-
-Currently, the program saves every trained neural net. They are saved in the folder `saved` where each neural net that has been trained creates a folder. The folder is named by the combination of preset, model name and sensors it uses. If the program is ran twice without changing any of these three settings the program will face an already exixting folder with the same name as the one it is currently trying to create. In that case the program adds `_change_name_` to the name in order to not over write anything. 
-
-It is only the neural net that is saved i.e. its weights and states. In order to properly load the weights and states and use it again the net must have the exact same architecture as when said weights were created. 
+# PCAAnomalies 
+Class for PCA objects operating on Anomaly objects
 
 
 
