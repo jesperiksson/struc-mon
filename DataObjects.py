@@ -1,3 +1,6 @@
+'''
+Child class to PostgresData. Parent class to the classes of AnomalyData and RegularityData 
+'''
 from Settings import Settings
 import config
 

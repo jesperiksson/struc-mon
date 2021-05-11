@@ -1,3 +1,7 @@
+'''
+Child class to Data. Parent class to all classes of objects handling data fetched via SQL queries 
+from the PostgreSQL server. 
+'''
 from Settings import Settings
 import config
 

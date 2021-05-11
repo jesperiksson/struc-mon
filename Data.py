@@ -1,3 +1,7 @@
+'''
+Parent class for all classes of data object
+'''
+
 # Standard packages
 import os
 from dataclasses import dataclass
