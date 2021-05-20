@@ -70,3 +70,47 @@ class AnomalyData(DataObjects):
         
     def get_objects_name(self, name):
         return f"{config.anomaly_path}{name}.json"
+        
+    def plot_filtered_hours_categories(self, labels, predictor, foi = 'acc1_ch_x'):
+        max_plots = 2
+        n_plots = min(max_plots,len(self.time_filtered_dfs))
+        fig, axs = plt.subplots(n_plots, figsize = config.figsize)
+        randints = [random.randint(0,len(self.time_filtered_dfs)-1) for p in range(n_plots)]
+        for i in range(n_plots):
+            self.time_filtered_dfs[randints[i]].plot(
+                x = 'ts', y = foi, kind = 'line', ax = axs[i], grid = True, linewidth = 0.1, sharey = True
+                )
+            fmt_minute = mdates.MinuteLocator()
+            axs[i].xaxis.set_minor_locator(fmt_minute)
+            axs[i].xaxis.grid(True, which = 'minor')
+            try:
+                axs[i].set_title(f"{datetime.strftime(self.dfs[randints[i]]['ts'].iloc[0],config.dateformat)}")
+            except IndexError:
+                axs[i].set_title(f"")
+            colors  = config.colors
+            '''
+            objects = self.objects[randints[i]]
+            for key in objects.keys():
+                try:
+                    axs[i].plot(
+                        self.time_filtered_dfs[randints[i]]['ts'][self.objects[key].start_index+1: self.objects[key].end_index+1],
+                        self.objects[key].series,
+                        linestyle = 'solid',
+                        linewidth = 0.15,
+                        color = colors[labels[key]])
+                    axs[i].grid(axis = 'y', color = '0.95')     
+                except ValueError:
+                    pass   
+                    '''
+            objects = self.object_algorithm(self.time_filtered_dfs[randints[i]],foi)
+            print(objects)
+            for key in objects.keys():
+                axs[i].plot(
+                    self.time_filtered_dfs[randints[i]]['ts'][objects[key].start_index+1: objects[key].end_index+1],
+                    objects[key].series,
+                    linestyle = 'solid',
+                    linewidth = 0.15,
+                    color = colors[int(predictor.predict(objects[key]))])
+                axs[i].grid(axis = 'y', color = '0.95')       
+        fig.tight_layout()    
+        plt.show()

@@ -44,7 +44,6 @@ class PostgresData(Data):
                     grid = True,
                     linewidth = 0.1,
             )
-            print(df['ts'])
             plt.show()
             
     def preprocess(self, method = 'standard'):

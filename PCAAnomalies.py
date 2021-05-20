@@ -1,3 +1,6 @@
+'''
+Child class to AnomalyModel. Inherits X which is a np matrix of features(normalized) x samples as well as labels
+'''
 from sklearn.decomposition import PCA, KernelPCA
 from sklearn.preprocessing import normalize
 import numpy as np
@@ -11,16 +14,14 @@ import pickle
 from AnomalyModel import AnomalyModel
 
 class PCAAnomalies(AnomalyModel):
-    def __init__(self,anomaly_dict, settings, n_components = 0.99):
-        super().__init__(anomaly_dict, settings)
-        self.feature_labels = next(iter(anomaly_dict.values())).get_feature_labels()# list?
+    def __init__(self,anomaly_dict, settings, features, n_components = 0.99):
+        super().__init__(anomaly_dict, settings, features)
         self.pca = PCA(
             n_components = n_components,
             svd_solver = 'full')
         self.end_indices = np.array([[int(x.end_index) for x in list(anomaly_dict.values())]])
         self.df_numbers = np.array([[int(x.df_number) for x in list(anomaly_dict.values())]])
         self.irl_labels = np.array([[int(x.irl_label) for x in list(anomaly_dict.values())]])
-        print(self.irl_labels)
         self.df = pd.DataFrame(
             np.append(self.X, np.append(self.end_indices,np.append(self.df_numbers,self.irl_labels,axis=0),axis=0),axis=0).transpose(),
             columns=self.feature_labels+['end index','df_number','irl_label'])
@@ -105,20 +106,22 @@ class PCAAnomalies(AnomalyModel):
         plt.colorbar(sc)
         plt.show()
         
-    def plot_hist_pca(self):
-        colors = ['tab:blue','tab:red','tab:green']
+    def plot_hist_pca(self,component = 1):
+        component -=1
+        colors = config.colors
         for i, color in enumerate(colors):
             j = (self.df['labels'] == i).to_numpy() 
             plt.hist(
-                self.pca.components_[0,:][j],
+                self.pca.components_[component,:][j],
                 bins = 50,
                 color = color,
                 alpha = 0.5,
                 edgecolor = 'k',
                 stacked = True,
-                label = f"Category {i}")
-        plt.title(f"PCA component 0 categories according to Kmeans")
-        plt.legend()
+                #label = f"Category {i}",
+                )
+        plt.title(f"PCA component {component+1} categories according to Kmeans")
+        #plt.legend()
         plt.show()
         
     def scree_plot(self):
@@ -161,15 +164,17 @@ class PCAAnomalies(AnomalyModel):
     def set_labels(self,labels):
         self.df['labels'] = labels
         
-    def plot_components_labels(self,n_categories):
+    def plot_components_labels(self,n_categories,plot_irl_observation=False):
         fig, axs = plt.subplots(2, figsize = config.figsize)
         cmap = plt.cm.jet
         cmaplist = [cmap(i) for i in range(cmap.N)]
         cmap = mpl.colors.LinearSegmentedColormap.from_list('Custom cmap', cmaplist, cmap.N)
         bounds = np.linspace(0, n_categories, n_categories+1)
         norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-        
-        markers = ['o','o']
+        if plot_irl_observation:
+            markers = ['o','o']
+        else:
+            markers = ['o']
         linewidths = [0,2]
         for k,m in enumerate(markers):
             i = (self.df['irl_label'] == k).to_numpy()   

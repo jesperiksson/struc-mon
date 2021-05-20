@@ -32,11 +32,9 @@ class SeriesObject():
                 self.irl_label = 0
         
     def get_feature_vector(self):
-        #return np.array([self.duration,self.mu,self.abs_mu,self.sigma,self.max_a,self.rms,self.frequency])
         return np.array([self.mu,self.abs_mu,self.sigma,self.max_a,self.rms,self.frequency])
         
     def get_feature_labels(self):
-        #return ['Duration', 'mu', 'absolute_mu', 'sigma', 'max value','rms','frequency']#,'ApEn']
         return ['mu', 'absolute_mu', 'sigma', 'max_value','rms','frequency']
         
     def get_feature_vector_sensor(self): # The one used for PCA
@@ -46,3 +44,14 @@ class SeriesObject():
             
     def get_feature_labels_sensor(self):
         return ['Duration', 'mu', 'absolute_mu', 'sigma', 'max_value','rms','frequency','sensor']
+        
+    def get_feature_dict(self):
+        return {
+            'duration' : self.duration,
+            'mu': self.mu,
+            'abs_mu' : self.abs_mu,
+            'sigma' : self.sigma,
+            'max_a' : self.max_a,
+            'rms' : self.rms,
+            'frequency' : self.frequency,
+        }

@@ -80,10 +80,8 @@ class Scheme():
         #data.plot_filtered_hours(plot_objects=False)
         data.set_object_settings(anomaly_settings)
         anomaly_name = f"{startdate}_{mode}_{start_hour}_{end_hour}_{anomaly_settings.anomaly_sensor}_anomaly"
-        print(os.listdir(config.anomaly_path))
-        print(anomaly_name)
         if f"{anomaly_name}.json" in os.listdir(config.anomaly_path):
-            data.load_objects(name=f"{anomaly_name}.json")
+            data.load_objects(name=f"{anomaly_name}")
             print(f"{anomaly_name} loaded")
         else:       
             for feature in anomaly_settings.anomaly_sensor:
@@ -93,12 +91,12 @@ class Scheme():
                 #data.plot_filtered_hours(foi = feature)
             data.save_objects(name=anomaly_name)
         
-        
-        kmeans = KMeansClustering(data.objects,kmeans_settings)
+        features = ['duration','mu','abs_mu','sigma','max_a','rms','frequency']
+        kmeans = KMeansClustering(data.objects,kmeans_settings,features)
         kmeans.fit_Kmeans()
         #sensor_prediction = SensorPrediction(data.anomalies,self.settings)
         data.plot_filtered_hours(foi = 'acc1_ch_x')#,project_anomalies = 'acc1_ch_z')
-        pca = PCAAnomalies(data.objects,self.settings)
+        pca = PCAAnomalies(data.objects,self.settings,features = features)
         pca.fit_PCA()
         pca.save_pca(f'{anomaly_name}_pca')
         pca.set_labels(kmeans.send_labels())
@@ -108,8 +106,9 @@ class Scheme():
         pca.plot_components_labels(n_categories = kmeans_settings.n_clusters)
         pca.scree_plot()
         pca.plot_hist_pca()
+        pca.plot_hist_pca(component = 1)
         #pca.plot_components_3d()
-        pca.plot_components(features = ['Duration','frequency'])
+        pca.plot_components(features = ['duration','frequency'])
         #data.plot_anomalies(df_num = df_number, anomaly_key = anomaly_key)
         #data.ssa()
         #data.add_trig()
